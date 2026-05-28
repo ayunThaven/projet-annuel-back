@@ -33,6 +33,16 @@ $ npm install
 
 ## Compile and run the project
 
+Create a local `.env` file from `.env.example`, then update the Postgres
+credentials:
+
+```bash
+DATABASE_URL=postgres://postgres:postgres@localhost:5432/seo_genius
+```
+
+You can also configure the connection with `DB_HOST`, `DB_PORT`, `DB_USERNAME`,
+`DB_PASSWORD`, `DB_NAME`, `DB_SSL`, and `DB_SYNCHRONIZE`.
+
 ```bash
 # development
 $ npm run start
