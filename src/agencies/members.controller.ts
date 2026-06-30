@@ -3,6 +3,7 @@ import { AuthGuard } from '../auth/auth.guard';
 import { AgencyRole } from '../common/enums/agency-role.enum';
 import { AgenciesService } from './agencies.service';
 import { AgencyRoles } from './decorators/agency-roles.decorator';
+import { UpdateMemberRoleDto } from './dto/update-member-role.dto';
 import { AgencyRolesGuard } from './guards/agency-roles.guard';
 
 @Controller('members')
@@ -14,8 +15,8 @@ export class MembersController {
   @AgencyRoles(AgencyRole.OWNER, { membershipIdParam: 'id' })
   updateMemberRole(
     @Param('id') membershipId: string,
-    @Body() body: unknown,
+    @Body() body: UpdateMemberRoleDto,
   ) {
-    return this.agenciesService.updateMemberRole(membershipId, body ?? {});
+    return this.agenciesService.updateMemberRole(membershipId, body);
   }
 }

@@ -11,6 +11,8 @@ import type { FastifyReply } from 'fastify';
 import type { AuthenticatedRequest } from './authenticated-request';
 import { AuthGuard } from './auth.guard';
 import { AuthService } from './auth.service';
+import { LoginDto } from './dto/login.dto';
+import { RegisterDto } from './dto/register.dto';
 
 const cookieOptions = 'HttpOnly; Path=/; SameSite=Lax; Max-Age=604800';
 
@@ -20,10 +22,10 @@ export class AuthController {
 
   @Post('register')
   async register(
-    @Body() body: unknown,
+    @Body() body: RegisterDto,
     @Res({ passthrough: true }) res: FastifyReply,
   ) {
-    const session = await this.authService.register(body ?? {});
+    const session = await this.authService.register(body);
     res.header('Set-Cookie', `access_token=${session.token}; ${cookieOptions}`);
 
     return session;
@@ -31,10 +33,10 @@ export class AuthController {
 
   @Post('login')
   async login(
-    @Body() body: unknown,
+    @Body() body: LoginDto,
     @Res({ passthrough: true }) res: FastifyReply,
   ) {
-    const session = await this.authService.login(body ?? {});
+    const session = await this.authService.login(body);
     res.header('Set-Cookie', `access_token=${session.token}; ${cookieOptions}`);
 
     return session;

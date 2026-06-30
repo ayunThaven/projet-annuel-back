@@ -4,6 +4,8 @@ import { AuthGuard } from '../auth/auth.guard';
 import { AgencyRole } from '../common/enums/agency-role.enum';
 import { AgenciesService } from './agencies.service';
 import { AgencyRoles } from './decorators/agency-roles.decorator';
+import { CreateAgencyDto } from './dto/create-agency.dto';
+import { InviteMemberDto } from './dto/invite-member.dto';
 import { AgencyRolesGuard } from './guards/agency-roles.guard';
 
 @Controller('agencies')
@@ -12,8 +14,8 @@ export class AgenciesController {
   constructor(private readonly agenciesService: AgenciesService) {}
 
   @Post()
-  createAgency(@Req() req: AuthenticatedRequest, @Body() body: unknown) {
-    return this.agenciesService.createAgency(req.user.sub, body ?? {});
+  createAgency(@Req() req: AuthenticatedRequest, @Body() body: CreateAgencyDto) {
+    return this.agenciesService.createAgency(req.user.sub, body);
   }
 
   @Get()
@@ -28,8 +30,8 @@ export class AgenciesController {
 
   @Post('invitations')
   @AgencyRoles(AgencyRole.OWNER)
-  inviteMember(@Req() req: AuthenticatedRequest, @Body() body: unknown) {
-    return this.agenciesService.inviteMember(req.user.sub, body ?? {});
+  inviteMember(@Req() req: AuthenticatedRequest, @Body() body: InviteMemberDto) {
+    return this.agenciesService.inviteMember(req.user.sub, body);
   }
 
   @Post('invitations/:token/accept')

@@ -10,17 +10,8 @@ import { UserEntity } from '../users/user.entity';
 import { PasswordService } from './password.service';
 import { TokenService } from './token.service';
 import { PublicUser } from './auth.types';
-
-type RegisterInput = {
-  email?: string;
-  password?: string;
-  displayName?: string;
-};
-
-type LoginInput = {
-  email?: string;
-  password?: string;
-};
+import { LoginDto } from './dto/login.dto';
+import { RegisterDto } from './dto/register.dto';
 
 /**
  * Orchestration de l'inscription, connexion et exposition du profil public.
@@ -37,7 +28,7 @@ export class AuthService {
   /**
    * Cree un utilisateur et retourne directement une session exploitable.
    */
-  async register(input: RegisterInput) {
+  async register(input: RegisterDto) {
     const email = this.normalizeEmail(input.email);
 
     if (!email || !input.password || input.password.length < 8) {
@@ -67,7 +58,7 @@ export class AuthService {
   /**
    * Verifie les identifiants et retourne une session avec token d'acces.
    */
-  async login(input: LoginInput) {
+  async login(input: LoginDto) {
     const email = this.normalizeEmail(input.email);
 
     if (!email || !input.password) {

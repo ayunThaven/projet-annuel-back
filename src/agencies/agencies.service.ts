@@ -10,25 +10,12 @@ import { Repository } from 'typeorm';
 import { AgencyRole } from '../common/enums/agency-role.enum';
 import { InvitationStatus } from '../common/enums/invitation-status.enum';
 import { UserEntity } from '../users/user.entity';
+import { CreateAgencyDto } from './dto/create-agency.dto';
+import { InviteMemberDto } from './dto/invite-member.dto';
+import { UpdateMemberRoleDto } from './dto/update-member-role.dto';
 import { AgencyEntity } from './entities/agency.entity';
 import { AgencyInvitationEntity } from './entities/agency-invitation.entity';
 import { AgencyMembershipEntity } from './entities/agency-membership.entity';
-
-type CreateAgencyInput = {
-  name?: string;
-  notionDatabaseId?: string;
-  notionWorkspaceName?: string;
-};
-
-type InviteMemberInput = {
-  agencyId?: string;
-  email?: string;
-  role?: AgencyRole;
-};
-
-type UpdateRoleInput = {
-  role?: AgencyRole;
-};
 
 /**
  * Service central du mode agence.
@@ -52,7 +39,7 @@ export class AgenciesService {
   /**
    * Cree une agence et rattache automatiquement le createur comme OWNER.
    */
-  async createAgency(userId: string, input: CreateAgencyInput) {
+  async createAgency(userId: string, input: CreateAgencyDto) {
     if (!input.name?.trim()) {
       throw new BadRequestException('Agency name is required');
     }
@@ -112,7 +99,7 @@ export class AgenciesService {
    *
    * Le controle OWNER est porte par @AgencyRoles sur le controller.
    */
-  async inviteMember(userId: string, input: InviteMemberInput) {
+  async inviteMember(userId: string, input: InviteMemberDto) {
     if (!input.agencyId || !input.email?.trim()) {
       throw new BadRequestException('agencyId and email are required');
     }
@@ -187,7 +174,7 @@ export class AgenciesService {
    */
   async updateMemberRole(
     membershipId: string,
-    input: UpdateRoleInput,
+    input: UpdateMemberRoleDto,
   ) {
     if (!input.role) {
       throw new BadRequestException('role is required');
