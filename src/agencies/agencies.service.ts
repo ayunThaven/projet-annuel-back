@@ -12,6 +12,7 @@ import { InvitationStatus } from '../common/enums/invitation-status.enum';
 import { UserEntity } from '../users/user.entity';
 import { CreateAgencyDto } from './dto/create-agency.dto';
 import { InviteMemberDto } from './dto/invite-member.dto';
+import { UpdateAgencyDto } from './dto/update-agency.dto';
 import { UpdateMemberRoleDto } from './dto/update-member-role.dto';
 import { AgencyEntity } from './entities/agency.entity';
 import { AgencyInvitationEntity } from './entities/agency-invitation.entity';
@@ -61,7 +62,13 @@ export class AgenciesService {
       }),
     );
 
-    return { agency, membership };
+    return {
+      agency,
+      membership: {
+        membershipId: membership.id,
+        role: membership.role,
+      },
+    };
   }
 
   /**
@@ -95,6 +102,62 @@ export class AgenciesService {
   }
 
   /**
+   * Met a jour les informations administrables d'une agence.
+   */
+  async updateAgency(agencyId: string, input: UpdateAgencyDto) {
+    const agency = await this.findAgency(agencyId);
+
+    if (input.name !== undefined) {
+      const name = input.name.trim();
+
+      if (!name) {
+        throw new BadRequestException('Agency name is required');
+      }
+
+      agency.name = name;
+    }
+
+    if (input.notionDatabaseId !== undefined) {
+      agency.notionDatabaseId = input.notionDatabaseId.trim() || null;
+    }
+
+    if (input.notionWorkspaceName !== undefined) {
+      agency.notionWorkspaceName = input.notionWorkspaceName.trim() || null;
+    }
+
+    return this.agenciesRepository.save(agency);
+  }
+
+  /**
+   * Retourne les membres actifs et les invitations en attente d'une agence.
+   */
+  async listAgencyMembers(agencyId: string) {
+    await this.findAgency(agencyId);
+
+    const [memberships, invitations] = await Promise.all([
+      this.membershipsRepository.find({
+        where: { agency: { id: agencyId } },
+        relations: { user: true },
+        order: { createdAt: 'ASC' },
+      }),
+      this.invitationsRepository.find({
+        where: {
+          agency: { id: agencyId },
+          status: InvitationStatus.PENDING,
+        },
+        order: { createdAt: 'ASC' },
+      }),
+    ]);
+
+    return {
+      members: memberships.map((membership) => this.toMemberSummary(membership)),
+      invitations: invitations.map((invitation) =>
+        this.toInvitationSummary(invitation),
+      ),
+    };
+  }
+
+  /**
    * Cree une invitation pour un collaborateur.
    *
    * Le controle OWNER est porte par @AgencyRoles sur le controller.
@@ -118,7 +181,9 @@ export class AgenciesService {
       expiresAt: this.daysFromNow(7),
     });
 
-    return this.invitationsRepository.save(invitation);
+    const savedInvitation = await this.invitationsRepository.save(invitation);
+
+    return this.toInvitationSummary(savedInvitation, { includeToken: true });
   }
 
   /**
@@ -164,7 +229,9 @@ export class AgenciesService {
     invitation.status = InvitationStatus.ACCEPTED;
     invitation.acceptedAt = new Date();
 
-    return this.invitationsRepository.save(invitation);
+    const savedInvitation = await this.invitationsRepository.save(invitation);
+
+    return this.toInvitationSummary(savedInvitation);
   }
 
   /**
@@ -206,7 +273,9 @@ export class AgenciesService {
 
     membership.role = input.role;
 
-    return this.membershipsRepository.save(membership);
+    const savedMembership = await this.membershipsRepository.save(membership);
+
+    return this.toMemberSummary(savedMembership);
   }
 
   /**
@@ -261,5 +330,33 @@ export class AgenciesService {
     date.setDate(date.getDate() + days);
 
     return date;
+  }
+
+  private toMemberSummary(membership: AgencyMembershipEntity) {
+    return {
+      membershipId: membership.id,
+      role: membership.role,
+      joinedAt: membership.createdAt,
+      user: {
+        id: membership.user.id,
+        email: membership.user.email,
+        displayName: membership.user.displayName,
+      },
+    };
+  }
+
+  private toInvitationSummary(
+    invitation: AgencyInvitationEntity,
+    options: { includeToken?: boolean } = {},
+  ) {
+    return {
+      id: invitation.id,
+      email: invitation.email,
+      role: invitation.role,
+      status: invitation.status,
+      expiresAt: invitation.expiresAt,
+      createdAt: invitation.createdAt,
+      ...(options.includeToken ? { token: invitation.token } : {}),
+    };
   }
 }

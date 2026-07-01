@@ -37,7 +37,7 @@ export class AgencyInvitationEntity {
   })
   status: InvitationStatus;
 
-  @ManyToOne(() => AgencyEntity, { onDelete: 'CASCADE' })
+  @ManyToOne(() => AgencyEntity, { nullable: false, onDelete: 'CASCADE' })
   agency: AgencyEntity;
 
   @ManyToOne(() => UserEntity, { onDelete: 'SET NULL', nullable: true })

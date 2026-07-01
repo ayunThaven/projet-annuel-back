@@ -43,6 +43,30 @@ DATABASE_URL=postgres://postgres:postgres@localhost:5432/seo_genius
 You can also configure the connection with `DB_HOST`, `DB_PORT`, `DB_USERNAME`,
 `DB_PASSWORD`, `DB_NAME`, `DB_SSL`, and `DB_SYNCHRONIZE`.
 
+For shared development and production, keep `DB_SYNCHRONIZE=false` and use
+TypeORM migrations:
+
+```bash
+$ npm run migration:generate
+$ npm run migration:run
+$ npm run migration:revert
+$ npm run migration:show
+```
+
+### CORS
+
+`CORS_ORIGINS` accepts a comma-separated list of browser origins allowed to call
+the API with credentials:
+
+```bash
+CORS_ORIGINS=https://app.example.com,https://admin.example.com
+```
+
+In development (`NODE_ENV !== production`), loopback origins are accepted on any
+port: `localhost`, `127.0.0.1`, and `[::1]`. This lets Next, Vite, or another
+local frontend move between ports without changing the backend config. In
+production, only explicit `CORS_ORIGINS` entries are allowed.
+
 ```bash
 # development
 $ npm run start

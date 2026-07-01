@@ -24,11 +24,13 @@ export class AgencyMembershipEntity {
   id: string;
 
   @ManyToOne(() => UserEntity, (user) => user.memberships, {
+    nullable: false,
     onDelete: 'CASCADE',
   })
   user: UserEntity;
 
   @ManyToOne(() => AgencyEntity, (agency) => agency.memberships, {
+    nullable: false,
     onDelete: 'CASCADE',
   })
   agency: AgencyEntity;

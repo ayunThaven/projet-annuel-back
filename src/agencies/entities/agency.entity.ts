@@ -22,11 +22,11 @@ export class AgencyEntity {
   @Column()
   name: string;
 
-  @Column({ nullable: true })
-  notionDatabaseId?: string;
+  @Column({ type: 'varchar', nullable: true })
+  notionDatabaseId: string | null;
 
-  @Column({ nullable: true })
-  notionWorkspaceName?: string;
+  @Column({ type: 'varchar', nullable: true })
+  notionWorkspaceName: string | null;
 
   @OneToMany(() => AgencyMembershipEntity, (membership) => membership.agency)
   memberships: AgencyMembershipEntity[];
