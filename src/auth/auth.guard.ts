@@ -47,7 +47,10 @@ export class AuthGuard implements CanActivate {
   private extractToken(headers: Record<string, string | string[] | undefined>) {
     const authorization = headers.authorization;
 
-    if (typeof authorization === 'string' && authorization.startsWith('Bearer ')) {
+    if (
+      typeof authorization === 'string' &&
+      authorization.startsWith('Bearer ')
+    ) {
       return authorization.slice('Bearer '.length);
     }
 

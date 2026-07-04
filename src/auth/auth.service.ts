@@ -67,7 +67,10 @@ export class AuthService {
 
     const user = await this.usersRepository.findOne({ where: { email } });
 
-    if (!user || !this.passwordService.verify(input.password, user.passwordHash)) {
+    if (
+      !user ||
+      !this.passwordService.verify(input.password, user.passwordHash)
+    ) {
       throw new UnauthorizedException('Invalid credentials');
     }
 

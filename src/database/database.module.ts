@@ -14,8 +14,7 @@ import { TypeOrmModule, TypeOrmModuleOptions } from '@nestjs/typeorm';
         const baseOptions: TypeOrmModuleOptions = {
           type: 'postgres',
           autoLoadEntities: true,
-          synchronize:
-            configService.get<string>('DB_SYNCHRONIZE') === 'true',
+          synchronize: configService.get<string>('DB_SYNCHRONIZE') === 'true',
           ...(useSsl ? { ssl: { rejectUnauthorized: false } } : {}),
         };
 

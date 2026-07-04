@@ -76,7 +76,10 @@ export class AgencyRolesGuard implements CanActivate {
     options: AgencyRolesOptions,
   ) {
     if (options.membershipIdParam) {
-      return this.resolveAgencyIdFromMembership(request, options.membershipIdParam);
+      return this.resolveAgencyIdFromMembership(
+        request,
+        options.membershipIdParam,
+      );
     }
 
     const key = options.agencyIdKey ?? 'agencyId';
