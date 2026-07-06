@@ -67,6 +67,14 @@ port: `localhost`, `127.0.0.1`, and `[::1]`. This lets Next, Vite, or another
 local frontend move between ports without changing the backend config. In
 production, only explicit `CORS_ORIGINS` entries are allowed.
 
+### IA
+
+Le socle IA est documente dans `docs/ai-foundation.md`. Par defaut,
+`AI_PROVIDER=gemini` utilise le provider Gemini. Configurer `GEMINI_API_KEY` et
+`GEMINI_MODEL` pour appeler le modele voulu. `AI_PROVIDER=demo` reste disponible
+pour tester les routes sans cle externe. `AiService` injecte aussi un contexte
+systeme SEO Genius, extensible avec le champ `context` des requetes.
+
 ```bash
 # development
 $ npm run start
