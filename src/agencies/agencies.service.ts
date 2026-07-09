@@ -150,7 +150,9 @@ export class AgenciesService {
     ]);
 
     return {
-      members: memberships.map((membership) => this.toMemberSummary(membership)),
+      members: memberships.map((membership) =>
+        this.toMemberSummary(membership),
+      ),
       invitations: invitations.map((invitation) =>
         this.toInvitationSummary(invitation),
       ),
@@ -239,10 +241,7 @@ export class AgenciesService {
    *
    * Le controle OWNER est porte par @AgencyRoles sur le controller.
    */
-  async updateMemberRole(
-    membershipId: string,
-    input: UpdateMemberRoleDto,
-  ) {
+  async updateMemberRole(membershipId: string, input: UpdateMemberRoleDto) {
     if (!input.role) {
       throw new BadRequestException('role is required');
     }
@@ -258,7 +257,10 @@ export class AgenciesService {
       throw new NotFoundException('Membership not found');
     }
 
-    if (membership.role === AgencyRole.OWNER && input.role !== AgencyRole.OWNER) {
+    if (
+      membership.role === AgencyRole.OWNER &&
+      input.role !== AgencyRole.OWNER
+    ) {
       const ownerCount = await this.membershipsRepository.count({
         where: {
           agency: { id: membership.agency.id },

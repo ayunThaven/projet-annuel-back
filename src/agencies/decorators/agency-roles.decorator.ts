@@ -24,8 +24,7 @@ export function AgencyRoles(
   ...rolesOrOptions: Array<AgencyRole | AgencyRolesOptions>
 ) {
   const maybeOptions = rolesOrOptions.at(-1);
-  const options =
-    typeof maybeOptions === 'object' ? (maybeOptions as AgencyRolesOptions) : {};
+  const options = typeof maybeOptions === 'object' ? maybeOptions : {};
   const roles = rolesOrOptions.filter(
     (value): value is AgencyRole => typeof value === 'string',
   );

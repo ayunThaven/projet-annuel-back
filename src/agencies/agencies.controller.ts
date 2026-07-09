@@ -24,7 +24,10 @@ export class AgenciesController {
   constructor(private readonly agenciesService: AgenciesService) {}
 
   @Post()
-  createAgency(@Req() req: AuthenticatedRequest, @Body() body: CreateAgencyDto) {
+  createAgency(
+    @Req() req: AuthenticatedRequest,
+    @Body() body: CreateAgencyDto,
+  ) {
     return this.agenciesService.createAgency(req.user.sub, body);
   }
 
@@ -57,7 +60,10 @@ export class AgenciesController {
 
   @Post('invitations')
   @AgencyRoles(AgencyRole.OWNER)
-  inviteMember(@Req() req: AuthenticatedRequest, @Body() body: InviteMemberDto) {
+  inviteMember(
+    @Req() req: AuthenticatedRequest,
+    @Body() body: InviteMemberDto,
+  ) {
     return this.agenciesService.inviteMember(req.user.sub, body);
   }
 
