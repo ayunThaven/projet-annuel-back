@@ -50,6 +50,9 @@ export class ContentItemEntity implements NotionSyncable {
   @Column({ type: 'text', nullable: true })
   notes: string | null;
 
+  @Column({ type: 'text', nullable: true })
+  body: string | null;
+
   // --- Socle de synchronisation Notion ---
 
   @Index({ unique: true, where: '"notionPageId" IS NOT NULL' })
