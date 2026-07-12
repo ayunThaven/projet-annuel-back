@@ -1,0 +1,5 @@
+export enum DuplicateStatus {
+  UNIQUE = 'UNIQUE',
+  POSSIBLE_DUPLICATE = 'POSSIBLE_DUPLICATE',
+  DUPLICATE = 'DUPLICATE',
+}

@@ -9,6 +9,7 @@ import { AuthModule } from './auth/auth.module';
 import { AiModule } from './ai/ai.module';
 import { ContentModule } from './content/content.module';
 import { CurationModule } from './curation/curation.module';
+import { IdeasModule } from './ideas/ideas.module';
 import { NotionModule } from './notion/notion.module';
 
 @Module({
@@ -23,6 +24,7 @@ import { NotionModule } from './notion/notion.module';
     AiModule,
     ContentModule,
     CurationModule,
+    IdeasModule,
     NotionModule,
   ],
   controllers: [AppController],
