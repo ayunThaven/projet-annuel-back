@@ -10,6 +10,7 @@ import { AiModule } from './ai/ai.module';
 import { ContentModule } from './content/content.module';
 import { CurationModule } from './curation/curation.module';
 import { NotionModule } from './notion/notion.module';
+import { GenerateModule } from './generate/generate.module';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { NotionModule } from './notion/notion.module';
     ContentModule,
     CurationModule,
     NotionModule,
+    GenerateModule,
   ],
   controllers: [AppController],
   providers: [AppService],
