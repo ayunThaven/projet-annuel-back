@@ -21,6 +21,7 @@ export class FeedSources1782960000000 implements MigrationInterface {
         "createdAt" TIMESTAMP NOT NULL DEFAULT now(),
         "updatedAt" TIMESTAMP NOT NULL DEFAULT now(),
         CONSTRAINT "PK_feed_sources_id" PRIMARY KEY ("id"),
+        CONSTRAINT "UQ_feed_sources_agency_url" UNIQUE ("agencyId", "url"),
         CONSTRAINT "FK_feed_sources_agency" FOREIGN KEY ("agencyId")
           REFERENCES "agencies"("id") ON DELETE CASCADE
       )

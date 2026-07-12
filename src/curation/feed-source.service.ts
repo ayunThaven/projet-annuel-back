@@ -1,9 +1,16 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { QueryFailedError, Repository } from 'typeorm';
 import { CreateFeedSourceDto } from './dto/create-feed-source.dto';
 import { UpdateFeedSourceDto } from './dto/update-feed-source.dto';
 import { FeedSourceEntity } from './entities/feed-source.entity';
+
+/** Code d'erreur PostgreSQL pour une violation de contrainte unique. */
+const PG_UNIQUE_VIOLATION = '23505';
 
 /**
  * CRUD des flux RSS d'une agence.
@@ -15,7 +22,7 @@ export class FeedSourceService {
     private readonly feedRepository: Repository<FeedSourceEntity>,
   ) {}
 
-  create(agencyId: string, dto: CreateFeedSourceDto) {
+  async create(agencyId: string, dto: CreateFeedSourceDto) {
     const feed = this.feedRepository.create({
       agency: { id: agencyId },
       url: dto.url.trim(),
@@ -24,7 +31,7 @@ export class FeedSourceService {
       enabled: true,
     });
 
-    return this.feedRepository.save(feed);
+    return this.saveUnique(feed);
   }
 
   findAll(agencyId: string) {
@@ -59,7 +66,7 @@ export class FeedSourceService {
       feed.url = dto.url.trim();
     }
 
-    return this.feedRepository.save(feed);
+    return this.saveUnique(feed);
   }
 
   async remove(agencyId: string, id: string) {
@@ -68,5 +75,25 @@ export class FeedSourceService {
     await this.feedRepository.remove(feed);
 
     return { success: true };
+  }
+
+  /**
+   * Persiste le flux en traduisant la violation de contrainte unique
+   * (agencyId, url) en 409 plutot qu'en 500.
+   */
+  private async saveUnique(feed: FeedSourceEntity) {
+    try {
+      return await this.feedRepository.save(feed);
+    } catch (error) {
+      if (
+        error instanceof QueryFailedError &&
+        (error.driverError as { code?: string })?.code === PG_UNIQUE_VIOLATION
+      ) {
+        throw new ConflictException(
+          'A feed source with this URL already exists for this agency',
+        );
+      }
+      throw error;
+    }
   }
 }

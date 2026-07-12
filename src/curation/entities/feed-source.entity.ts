@@ -4,6 +4,7 @@ import {
   Entity,
   ManyToOne,
   PrimaryGeneratedColumn,
+  Unique,
   UpdateDateColumn,
 } from 'typeorm';
 import { AgencyEntity } from '../../agencies/entities/agency.entity';
@@ -14,6 +15,7 @@ import { AgencyEntity } from '../../agencies/entities/agency.entity';
  * defaultTopics est applique automatiquement aux ressources ingerees.
  */
 @Entity('feed_sources')
+@Unique('UQ_feed_sources_agency_url', ['agency', 'url'])
 export class FeedSourceEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -24,7 +26,8 @@ export class FeedSourceEntity {
   @Column({ type: 'varchar', nullable: true })
   name: string | null;
 
-  @Column({ type: 'simple-array', nullable: true })
+  // simple-json (et non simple-array) pour ne pas decouper un topic contenant une virgule.
+  @Column({ type: 'simple-json', nullable: true })
   defaultTopics: string[] | null;
 
   @Column({ type: 'boolean', default: true })
