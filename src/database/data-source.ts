@@ -14,6 +14,12 @@ import { InitAuthAgencies1782864000000 } from './migrations/1782864000000-init-a
 import { NotionContentCuration1782950400000 } from './migrations/1782950400000-notion-content-curation';
 import { IdeasGeneration1783036800000 } from './migrations/1783036800000-ideas-generation';
 import { IdeaGenerationDailyDefault1783123200000 } from './migrations/1783123200000-idea-generation-daily-default';
+import { FeedSourceEntity } from '../curation/entities/feed-source.entity';
+import { UserEntity } from '../users/user.entity';
+import { InitAuthAgencies1782864000000 } from './migrations/1782864000000-init-auth-agencies';
+import { NotionContentCuration1782950400000 } from './migrations/1782950400000-notion-content-curation';
+import { FeedSources1782960000000 } from './migrations/1782960000000-feed-sources';
+import { AddContentBody1783900800000 } from './migrations/1783900800000-add-content-body';
 
 config({ quiet: true });
 
@@ -31,6 +37,7 @@ const baseOptions: DataSourceOptions = {
     ContentIdeaEntity,
     IdeaGenerationSettingsEntity,
     IdeaGenerationRunEntity,
+    FeedSourceEntity,
     UserEntity,
   ],
   migrations: [
@@ -38,6 +45,8 @@ const baseOptions: DataSourceOptions = {
     NotionContentCuration1782950400000,
     IdeasGeneration1783036800000,
     IdeaGenerationDailyDefault1783123200000,
+    FeedSources1782960000000,
+    AddContentBody1783900800000,
   ],
   synchronize: false,
   ...(useSsl ? { ssl: { rejectUnauthorized: false } } : {}),
