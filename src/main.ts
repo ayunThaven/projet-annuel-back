@@ -26,7 +26,7 @@ async function bootstrap() {
     }),
   );
   app.setGlobalPrefix('api');
-  await app.listen(process.env.PORT ?? 3001);
+  await app.listen(Number(process.env.PORT ?? 3001), '0.0.0.0');
 }
 
 bootstrap();
