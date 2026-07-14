@@ -10,6 +10,7 @@ import { DemoAiProvider } from './providers/demo-ai.provider';
 import {
   AiCompletionInput,
   AiJsonSchema,
+  AiModelOption,
   AiMessage,
   AiProvider,
 } from './providers/ai-provider.interface';
@@ -34,7 +35,7 @@ export class AiService {
   constructor(
     private readonly configService: ConfigService,
     demoAiProvider: DemoAiProvider,
-    geminiProvider: GeminiProvider,
+    private readonly geminiProvider: GeminiProvider,
     private readonly aiSettingsService: AiSettingsService,
   ) {
     [demoAiProvider, geminiProvider].forEach((provider) => {
@@ -89,6 +90,24 @@ export class AiService {
       model: settings.model ?? input.model,
       apiKey: settings.geminiApiKey,
     });
+  }
+
+  async listModelsForAgency(
+    agencyId: string,
+    providerId?: string,
+  ): Promise<AiModelOption[]> {
+    const settings = await this.aiSettingsService.getRuntimeSettings(agencyId);
+    const provider = (providerId || settings.provider).trim();
+
+    if (provider === 'demo') {
+      return [{ id: 'demo-local', label: 'Demo locale' }];
+    }
+
+    if (provider === 'gemini') {
+      return this.geminiProvider.listModels(settings.geminiApiKey);
+    }
+
+    throw new BadRequestException(`Unknown AI provider "${provider}"`);
   }
 
   private callProvider(input: AiCompletionInput & { provider?: string }) {

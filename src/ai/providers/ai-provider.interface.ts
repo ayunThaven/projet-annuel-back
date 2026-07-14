@@ -38,6 +38,11 @@ export type AiProviderStatus = {
   missingConfig?: string[];
 };
 
+export type AiModelOption = {
+  id: string;
+  label: string;
+};
+
 /**
  * Contract shared by every LLM integration.
  *

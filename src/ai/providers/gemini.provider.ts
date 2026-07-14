@@ -7,6 +7,7 @@ import { ConfigService } from '@nestjs/config';
 import {
   AiCompletionInput,
   AiCompletionResult,
+  AiModelOption,
   AiMessage,
   AiProvider,
   AiProviderStatus,
@@ -30,6 +31,15 @@ type GeminiResponse = {
     candidatesTokenCount?: number;
     totalTokenCount?: number;
   };
+};
+
+type GeminiModelsResponse = {
+  models?: Array<{
+    name?: unknown;
+    displayName?: unknown;
+    supportedGenerationMethods?: unknown;
+  }>;
+  nextPageToken?: unknown;
 };
 
 /**
@@ -128,6 +138,61 @@ export class GeminiProvider implements AiProvider {
     return this.getMissingConfig().length === 0;
   }
 
+  async listModels(apiKey?: string): Promise<AiModelOption[]> {
+    const missingConfig = this.getMissingConfig(apiKey);
+
+    if (missingConfig.length > 0) {
+      throw new BadRequestException(
+        `AI provider ${this.id} is not configured: ${missingConfig.join(', ')}`,
+      );
+    }
+
+    const models = new Map<string, AiModelOption>();
+    let pageToken: string | undefined;
+
+    do {
+      const response = await fetch(this.createModelsUrl(apiKey, pageToken));
+
+      if (!response.ok) {
+        const details = await this.readErrorDetails(response);
+        throw new BadGatewayException(
+          `AI provider ${this.id} returned ${response.status}${details}`,
+        );
+      }
+
+      const body = (await response.json()) as GeminiModelsResponse;
+      body.models?.forEach((model) => {
+        const name = typeof model.name === 'string' ? model.name : '';
+        const supportsGeneration = Array.isArray(
+          model.supportedGenerationMethods,
+        )
+          ? model.supportedGenerationMethods.includes('generateContent')
+          : false;
+
+        if (!name || !supportsGeneration) {
+          return;
+        }
+
+        const id = name.replace(/^models\//, '');
+        const label =
+          typeof model.displayName === 'string' && model.displayName.trim()
+            ? model.displayName.trim()
+            : id;
+
+        models.set(id, { id, label });
+      });
+
+      pageToken =
+        typeof body.nextPageToken === 'string' && body.nextPageToken.trim()
+          ? body.nextPageToken
+          : undefined;
+    } while (pageToken);
+
+    return Array.from(models.values()).sort((left, right) =>
+      left.label.localeCompare(right.label),
+    );
+  }
+
   private createPayload(input: AiCompletionInput) {
     const systemInstruction = this.createSystemInstruction(input.messages);
     const contents = this.createContents(input.messages);
@@ -188,6 +253,18 @@ export class GeminiProvider implements AiProvider {
       `${this.getBaseUrl()}/${this.normalizeModelResource(model)}:generateContent`,
     );
     url.searchParams.set('key', this.getApiKey(apiKey) ?? '');
+
+    return url;
+  }
+
+  private createModelsUrl(apiKey?: string, pageToken?: string) {
+    const url = new URL(`${this.getBaseUrl()}/models`);
+    url.searchParams.set('key', this.getApiKey(apiKey) ?? '');
+    url.searchParams.set('pageSize', '1000');
+
+    if (pageToken) {
+      url.searchParams.set('pageToken', pageToken);
+    }
 
     return url;
   }
