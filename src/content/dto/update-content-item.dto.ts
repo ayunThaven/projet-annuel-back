@@ -52,4 +52,8 @@ export class UpdateContentItemDto {
   @IsString()
   @MaxLength(2000)
   notes?: string | null;
+
+  @IsOptional()
+  @IsString()
+  body?: string | null;
 }

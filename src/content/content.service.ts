@@ -73,6 +73,7 @@ export class ContentService {
     if (input.url !== undefined) item.url = input.url;
     if (input.tags !== undefined) item.tags = input.tags;
     if (input.notes !== undefined) item.notes = input.notes;
+    if (input.body !== undefined) item.body = input.body;
 
     // Modifie cote application : a re-exporter vers Notion.
     item.syncStatus = SyncStatus.PENDING;
