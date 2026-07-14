@@ -148,6 +148,16 @@ export class GeminiProvider implements AiProvider {
         ...(input.maxTokens !== undefined
           ? { maxOutputTokens: input.maxTokens }
           : {}),
+        ...(input.responseFormat === 'json'
+          ? {
+              responseFormat: {
+                text: {
+                  mimeType: 'APPLICATION_JSON',
+                  ...(input.responseSchema ? { schema: input.responseSchema } : {}),
+                },
+              },
+            }
+          : {}),
       },
     };
   }

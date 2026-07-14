@@ -5,11 +5,15 @@ export type AiMessage = {
   content: string;
 };
 
+export type AiJsonSchema = Record<string, unknown>;
+
 export type AiCompletionInput = {
   messages: AiMessage[];
   model?: string;
   temperature?: number;
   maxTokens?: number;
+  responseFormat?: 'json';
+  responseSchema?: AiJsonSchema;
 };
 
 export type AiUsage = {

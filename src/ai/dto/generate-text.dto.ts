@@ -1,5 +1,6 @@
 import {
   IsInt,
+  IsIn,
   IsNumber,
   IsOptional,
   IsString,
@@ -46,4 +47,8 @@ export class GenerateTextDto {
   @Min(1)
   @Max(32000)
   maxTokens?: number;
+
+  @IsOptional()
+  @IsIn(['json'])
+  responseFormat?: 'json';
 }

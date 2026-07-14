@@ -9,6 +9,7 @@ import {
 import { DemoAiProvider } from './providers/demo-ai.provider';
 import {
   AiCompletionInput,
+  AiJsonSchema,
   AiMessage,
   AiProvider,
 } from './providers/ai-provider.interface';
@@ -53,7 +54,7 @@ export class AiService {
     });
   }
 
-  generateText(input: GenerateTextDto) {
+  generateText(input: GenerateTextDto & { responseSchema?: AiJsonSchema }) {
     const messages: AiMessage[] = [
       ...(input.systemPrompt
         ? [{ role: 'system' as const, content: input.systemPrompt }]
@@ -67,6 +68,8 @@ export class AiService {
       model: input.model,
       temperature: input.temperature,
       maxTokens: input.maxTokens,
+      responseFormat: input.responseFormat,
+      responseSchema: input.responseSchema,
     });
   }
 
@@ -78,6 +81,8 @@ export class AiService {
       model: input.model,
       temperature: input.temperature,
       maxTokens: input.maxTokens,
+      responseFormat: input.responseFormat,
+      responseSchema: input.responseSchema,
     });
   }
 

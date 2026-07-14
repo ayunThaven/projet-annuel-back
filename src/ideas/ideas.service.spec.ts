@@ -131,6 +131,36 @@ describe('IdeasService', () => {
     expect(result.ideas[0].duplicateStatus).toBe(DuplicateStatus.UNIQUE);
   });
 
+  it('repairs one malformed AI response before persisting ideas', async () => {
+    const { aiService, service } = createService();
+    aiService.generateText
+      .mockResolvedValueOnce({
+        provider: 'gemini',
+        model: 'gemini-test',
+        content: '{"ideas":[{"title":"Idée incomplète",}]}',
+      })
+      .mockResolvedValueOnce({
+        provider: 'gemini',
+        model: 'gemini-test',
+        content: JSON.stringify({
+          ideas: [{ title: 'Idée réparée', keywords: ['seo'] }],
+        }),
+      });
+
+    const result = await service.generate('agency-1', {
+      theme: 'SEO',
+      count: 3,
+      checkDuplicates: false,
+    });
+
+    expect(result.ideas).toHaveLength(1);
+    expect(result.ideas[0].title).toBe('Idée réparée');
+    expect(aiService.generateText).toHaveBeenCalledTimes(2);
+    expect(aiService.generateText).toHaveBeenLastCalledWith(
+      expect.objectContaining({ responseFormat: 'json', temperature: 0 }),
+    );
+  });
+
   it('accepts an idea by creating a content item', async () => {
     const { contentService, ideasRepository, service } = createService();
     ideasRepository.findOne.mockResolvedValue({

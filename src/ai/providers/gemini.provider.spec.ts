@@ -92,4 +92,29 @@ describe('GeminiProvider', () => {
       },
     });
   });
+
+  it('requests native JSON output when requested by the caller', async () => {
+    const fetchMock = jest.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          candidates: [{ content: { parts: [{ text: '{"ideas":[]}' }] } }],
+        }),
+        { status: 200 },
+      ),
+    );
+    global.fetch = fetchMock;
+    const provider = new GeminiProvider(createConfig({ GEMINI_API_KEY: 'secret' }));
+
+    await provider.complete({
+      messages: [{ role: 'user', content: 'Retourne un objet JSON.' }],
+      responseFormat: 'json',
+    });
+
+    const [, request] = fetchMock.mock.calls[0] as [URL, RequestInit];
+    expect(JSON.parse(request.body as string)).toMatchObject({
+      generationConfig: {
+        responseFormat: { text: { mimeType: 'APPLICATION_JSON' } },
+      },
+    });
+  });
 });
