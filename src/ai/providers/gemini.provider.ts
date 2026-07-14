@@ -46,7 +46,7 @@ export class GeminiProvider implements AiProvider {
   constructor(private readonly configService: ConfigService) {}
 
   async complete(input: AiCompletionInput): Promise<AiCompletionResult> {
-    const missingConfig = this.getMissingConfig();
+    const missingConfig = this.getMissingConfig(input.apiKey);
 
     if (missingConfig.length > 0) {
       throw new BadRequestException(
@@ -60,7 +60,7 @@ export class GeminiProvider implements AiProvider {
     const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
     try {
-      const response = await fetch(this.createUrl(model), {
+      const response = await fetch(this.createUrl(model, input.apiKey), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -153,7 +153,9 @@ export class GeminiProvider implements AiProvider {
               responseFormat: {
                 text: {
                   mimeType: 'APPLICATION_JSON',
-                  ...(input.responseSchema ? { schema: input.responseSchema } : {}),
+                  ...(input.responseSchema
+                    ? { schema: input.responseSchema }
+                    : {}),
                 },
               },
             }
@@ -181,11 +183,11 @@ export class GeminiProvider implements AiProvider {
       }));
   }
 
-  private createUrl(model: string) {
+  private createUrl(model: string, apiKey?: string) {
     const url = new URL(
       `${this.getBaseUrl()}/${this.normalizeModelResource(model)}:generateContent`,
     );
-    url.searchParams.set('key', this.getApiKey() ?? '');
+    url.searchParams.set('key', this.getApiKey(apiKey) ?? '');
 
     return url;
   }
@@ -205,8 +207,10 @@ export class GeminiProvider implements AiProvider {
     );
   }
 
-  private getApiKey() {
-    return this.configService.get<string>('GEMINI_API_KEY')?.trim();
+  private getApiKey(apiKey?: string) {
+    return (
+      apiKey?.trim() || this.configService.get<string>('GEMINI_API_KEY')?.trim()
+    );
   }
 
   private getDefaultModel() {
@@ -227,8 +231,8 @@ export class GeminiProvider implements AiProvider {
       : 30000;
   }
 
-  private getMissingConfig() {
-    return [!this.getApiKey() ? 'GEMINI_API_KEY' : undefined].filter(
+  private getMissingConfig(apiKey?: string) {
+    return [!this.getApiKey(apiKey) ? 'GEMINI_API_KEY' : undefined].filter(
       (value): value is string => Boolean(value),
     );
   }

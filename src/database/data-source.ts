@@ -17,6 +17,8 @@ import { IdeaGenerationDailyDefault1783123200000 } from './migrations/1783123200
 import { FeedSourceEntity } from '../curation/entities/feed-source.entity';
 import { FeedSources1782960000000 } from './migrations/1782960000000-feed-sources';
 import { AddContentBody1783900800000 } from './migrations/1783900800000-add-content-body';
+import { AgencyAiSettingsEntity } from '../ai/entities/agency-ai-settings.entity';
+import { AgencyAiSettings1783987200000 } from './migrations/1783987200000-agency-ai-settings';
 
 config({ quiet: true });
 
@@ -35,6 +37,7 @@ const baseOptions: DataSourceOptions = {
     IdeaGenerationSettingsEntity,
     IdeaGenerationRunEntity,
     FeedSourceEntity,
+    AgencyAiSettingsEntity,
     UserEntity,
   ],
   migrations: [
@@ -44,6 +47,7 @@ const baseOptions: DataSourceOptions = {
     IdeaGenerationDailyDefault1783123200000,
     FeedSources1782960000000,
     AddContentBody1783900800000,
+    AgencyAiSettings1783987200000,
   ],
   synchronize: false,
   ...(useSsl ? { ssl: { rejectUnauthorized: false } } : {}),

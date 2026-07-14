@@ -1,6 +1,7 @@
 import { BadRequestException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { AiService } from './ai.service';
+import { AiSettingsService } from './ai-settings.service';
 import { DemoAiProvider } from './providers/demo-ai.provider';
 import { GeminiProvider } from './providers/gemini.provider';
 
@@ -8,6 +9,12 @@ function createConfig(values: Record<string, string | undefined> = {}) {
   return {
     get: jest.fn((key: string) => values[key]),
   } as unknown as ConfigService;
+}
+
+function createSettingsService() {
+  return {
+    getRuntimeSettings: jest.fn(),
+  } as unknown as AiSettingsService;
 }
 
 describe('AiService', () => {
@@ -27,6 +34,7 @@ describe('AiService', () => {
       config,
       new DemoAiProvider(config),
       new GeminiProvider(config),
+      createSettingsService(),
     );
 
     expect(service.listProviders()).toMatchObject({
@@ -42,6 +50,7 @@ describe('AiService', () => {
       config,
       new DemoAiProvider(config),
       new GeminiProvider(config),
+      createSettingsService(),
     );
 
     const response = await service.generateText({
@@ -77,6 +86,7 @@ describe('AiService', () => {
       config,
       new DemoAiProvider(config),
       new GeminiProvider(config),
+      createSettingsService(),
     );
 
     await service.generateText({
@@ -111,6 +121,7 @@ describe('AiService', () => {
       config,
       new DemoAiProvider(config),
       new GeminiProvider(config),
+      createSettingsService(),
     );
 
     expect(service.listProviders()).toEqual({
@@ -138,6 +149,7 @@ describe('AiService', () => {
       config,
       new DemoAiProvider(config),
       new GeminiProvider(config),
+      createSettingsService(),
     );
 
     expect(() =>

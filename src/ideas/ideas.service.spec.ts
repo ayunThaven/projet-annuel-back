@@ -34,8 +34,8 @@ function createService() {
   const contentRepository = createRepositoryMock();
   const curationRepository = createRepositoryMock();
   const aiService = {
-    generateText: jest.fn(),
-  } as unknown as jest.Mocked<Pick<AiService, 'generateText'>>;
+    generateTextForAgency: jest.fn(),
+  } as unknown as jest.Mocked<Pick<AiService, 'generateTextForAgency'>>;
   const contentService = {
     create: jest.fn(),
   } as unknown as jest.Mocked<Pick<ContentService, 'create'>>;
@@ -75,7 +75,7 @@ describe('IdeasService', () => {
         notes: null,
       },
     ]);
-    aiService.generateText.mockResolvedValue({
+    aiService.generateTextForAgency.mockResolvedValue({
       provider: 'gemini',
       model: 'gemini-test',
       content: JSON.stringify({
@@ -113,7 +113,7 @@ describe('IdeasService', () => {
 
   it('uses deterministic demo ideas when the demo provider returns text', async () => {
     const { aiService, service } = createService();
-    aiService.generateText.mockResolvedValue({
+    aiService.generateTextForAgency.mockResolvedValue({
       provider: 'demo',
       model: 'demo-local',
       content: 'Reponse generee par le provider demo.',
@@ -133,7 +133,7 @@ describe('IdeasService', () => {
 
   it('repairs one malformed AI response before persisting ideas', async () => {
     const { aiService, service } = createService();
-    aiService.generateText
+    aiService.generateTextForAgency
       .mockResolvedValueOnce({
         provider: 'gemini',
         model: 'gemini-test',
@@ -155,8 +155,9 @@ describe('IdeasService', () => {
 
     expect(result.ideas).toHaveLength(1);
     expect(result.ideas[0].title).toBe('Idée réparée');
-    expect(aiService.generateText).toHaveBeenCalledTimes(2);
-    expect(aiService.generateText).toHaveBeenLastCalledWith(
+    expect(aiService.generateTextForAgency).toHaveBeenCalledTimes(2);
+    expect(aiService.generateTextForAgency).toHaveBeenLastCalledWith(
+      'agency-1',
       expect.objectContaining({ responseFormat: 'json', temperature: 0 }),
     );
   });

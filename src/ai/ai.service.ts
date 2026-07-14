@@ -14,6 +14,12 @@ import {
   AiProvider,
 } from './providers/ai-provider.interface';
 import { GeminiProvider } from './providers/gemini.provider';
+import { AiSettingsService } from './ai-settings.service';
+
+type GenerateTextInput = GenerateTextDto & {
+  responseSchema?: AiJsonSchema;
+  apiKey?: string;
+};
 
 /**
  * Facade used by application modules to call a language model.
@@ -29,6 +35,7 @@ export class AiService {
     private readonly configService: ConfigService,
     demoAiProvider: DemoAiProvider,
     geminiProvider: GeminiProvider,
+    private readonly aiSettingsService: AiSettingsService,
   ) {
     [demoAiProvider, geminiProvider].forEach((provider) => {
       this.providers.set(provider.id, provider);
@@ -54,7 +61,7 @@ export class AiService {
     });
   }
 
-  generateText(input: GenerateTextDto & { responseSchema?: AiJsonSchema }) {
+  generateText(input: GenerateTextInput) {
     const messages: AiMessage[] = [
       ...(input.systemPrompt
         ? [{ role: 'system' as const, content: input.systemPrompt }]
@@ -73,6 +80,17 @@ export class AiService {
     });
   }
 
+  async generateTextForAgency(agencyId: string, input: GenerateTextInput) {
+    const settings = await this.aiSettingsService.getRuntimeSettings(agencyId);
+
+    return this.generateText({
+      ...input,
+      provider: settings.provider,
+      model: settings.model ?? input.model,
+      apiKey: settings.geminiApiKey,
+    });
+  }
+
   private callProvider(input: AiCompletionInput & { provider?: string }) {
     const provider = this.resolveProvider(input.provider);
 
@@ -83,6 +101,7 @@ export class AiService {
       maxTokens: input.maxTokens,
       responseFormat: input.responseFormat,
       responseSchema: input.responseSchema,
+      apiKey: input.apiKey,
     });
   }
 
