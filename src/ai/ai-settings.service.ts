@@ -95,6 +95,7 @@ export class AiSettingsService {
     const settings = await this.settingsRepository.findOne({
       where: { agency: { id: agencyId } },
       select: {
+        id: true,
         provider: true,
         model: true,
         geminiApiKeyEncrypted: true,
