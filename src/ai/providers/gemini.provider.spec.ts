@@ -138,6 +138,10 @@ describe('GeminiProvider', () => {
               name: 'models/gemini-2.5-flash-image',
               supportedGenerationMethods: ['generateContent'],
             },
+            {
+              name: 'models/gemini-3-flash-preview',
+              supportedGenerationMethods: ['generateContent'],
+            },
           ],
         }),
         { status: 200 },

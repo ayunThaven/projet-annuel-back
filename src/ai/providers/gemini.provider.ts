@@ -44,6 +44,8 @@ type GeminiModelsResponse = {
 
 const nonTextModelNamePattern =
   /(?:^|[-_])(image|vision|audio|video|tts|live|music|lyria|veo|embedding|aqa|nano-banana)(?:[-_]|$)/i;
+const mainstreamTextModelNamePattern =
+  /^gemini-\d+(?:\.\d+)?-(?:flash(?:-lite)?|pro)(?:-latest)?$/i;
 
 /**
  * Provider for the Gemini GenerateContent REST API.
@@ -178,6 +180,7 @@ export class GeminiProvider implements AiProvider {
           !name ||
           !supportsGeneration ||
           !id.startsWith('gemini-') ||
+          !mainstreamTextModelNamePattern.test(id) ||
           nonTextModelNamePattern.test(id)
         ) {
           return;
