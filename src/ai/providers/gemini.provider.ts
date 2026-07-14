@@ -42,6 +42,9 @@ type GeminiModelsResponse = {
   nextPageToken?: unknown;
 };
 
+const nonTextModelNamePattern =
+  /(?:^|[-_])(image|vision|audio|video|tts|live|music|lyria|veo|embedding|aqa|nano-banana)(?:[-_]|$)/i;
+
 /**
  * Provider for the Gemini GenerateContent REST API.
  *
@@ -169,11 +172,17 @@ export class GeminiProvider implements AiProvider {
           ? model.supportedGenerationMethods.includes('generateContent')
           : false;
 
-        if (!name || !supportsGeneration) {
+        const id = name.replace(/^models\//, '');
+
+        if (
+          !name ||
+          !supportsGeneration ||
+          !id.startsWith('gemini-') ||
+          nonTextModelNamePattern.test(id)
+        ) {
           return;
         }
 
-        const id = name.replace(/^models\//, '');
         const label =
           typeof model.displayName === 'string' && model.displayName.trim()
             ? model.displayName.trim()

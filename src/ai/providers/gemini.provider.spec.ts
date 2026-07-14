@@ -134,6 +134,10 @@ describe('GeminiProvider', () => {
               name: 'models/text-embedding-004',
               supportedGenerationMethods: ['embedContent'],
             },
+            {
+              name: 'models/gemini-2.5-flash-image',
+              supportedGenerationMethods: ['generateContent'],
+            },
           ],
         }),
         { status: 200 },
