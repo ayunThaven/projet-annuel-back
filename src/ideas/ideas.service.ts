@@ -130,19 +130,25 @@ export class IdeasService {
     input: GenerateContentIdeasDto,
     source: ContentIdeaSource = ContentIdeaSource.MANUAL,
   ) {
-    return this.generateForAgency(agencyId, {
-      theme: input.theme.trim(),
-      sector: input.sector?.trim() || null,
-      count: input.count ?? 3,
-      checkDuplicates: input.checkDuplicates ?? true,
-    }, source);
+    return this.generateForAgency(
+      agencyId,
+      {
+        theme: input.theme.trim(),
+        sector: input.sector?.trim() || null,
+        count: input.count ?? 3,
+        checkDuplicates: input.checkDuplicates ?? true,
+      },
+      source,
+    );
   }
 
   async update(agencyId: string, id: string, input: UpdateContentIdeaDto) {
     const idea = await this.findOne(agencyId, id);
 
     if (input.status === ContentIdeaStatus.ACCEPTED) {
-      throw new BadRequestException('Use the accept endpoint to accept an idea');
+      throw new BadRequestException(
+        'Use the accept endpoint to accept an idea',
+      );
     }
 
     if (input.status !== undefined) {
@@ -262,7 +268,7 @@ export class IdeasService {
 
     try {
       const corpus = await this.buildDuplicateCorpus(agencyId);
-      const result = await this.aiService.generateText({
+      const result = await this.aiService.generateTextForAgency(agencyId, {
         prompt: this.buildPrompt(params),
         context: this.buildAiContext(corpus),
         temperature: 0.45,
@@ -272,6 +278,7 @@ export class IdeasService {
       });
       const generatedIdeas = (
         await this.parseGeneratedIdeasWithRecovery(
+          agencyId,
           result.content,
           params,
           result.provider,
@@ -441,6 +448,7 @@ export class IdeasService {
   }
 
   private async parseGeneratedIdeasWithRecovery(
+    agencyId: string,
     content: string,
     params: IdeaGenerationParams,
     provider: string,
@@ -448,7 +456,7 @@ export class IdeasService {
     try {
       return this.parseGeneratedIdeas(content, params, provider);
     } catch {
-      const repaired = await this.aiService.generateText({
+      const repaired = await this.aiService.generateTextForAgency(agencyId, {
         prompt: this.buildJsonRepairPrompt(content, params.count),
         temperature: 0,
         maxTokens: Math.max(900, params.count * 450),
@@ -456,7 +464,11 @@ export class IdeasService {
         responseSchema: CONTENT_IDEAS_RESPONSE_SCHEMA,
       });
 
-      return this.parseGeneratedIdeas(repaired.content, params, repaired.provider);
+      return this.parseGeneratedIdeas(
+        repaired.content,
+        params,
+        repaired.provider,
+      );
     }
   }
 
@@ -510,8 +522,7 @@ export class IdeasService {
     return {
       title,
       angle: this.readString(idea.angle, 120) || 'Angle pratique',
-      contentType:
-        this.readString(idea.contentType, 120) || 'Article de blog',
+      contentType: this.readString(idea.contentType, 120) || 'Article de blog',
       keywords: this.readStringArray(idea.keywords, 8),
       searchIntent:
         this.readString(idea.searchIntent, 160) || 'Informationnelle',
@@ -528,9 +539,7 @@ export class IdeasService {
   }
 
   private readString(value: unknown, maxLength: number) {
-    return typeof value === 'string'
-      ? value.trim().slice(0, maxLength)
-      : '';
+    return typeof value === 'string' ? value.trim().slice(0, maxLength) : '';
   }
 
   private readStringArray(value: unknown, limit: number) {
@@ -544,13 +553,12 @@ export class IdeasService {
       .slice(0, limit);
   }
 
-  private createDemoIdeas(params: IdeaGenerationParams): GeneratedIdeaPayload[] {
+  private createDemoIdeas(
+    params: IdeaGenerationParams,
+  ): GeneratedIdeaPayload[] {
     return Array.from({ length: params.count }, (_, index) => ({
       title: `${params.theme}: idee SEO ${index + 1}`,
-      angle:
-        index % 2 === 0
-          ? 'Guide pratique'
-          : 'Analyse strategique',
+      angle: index % 2 === 0 ? 'Guide pratique' : 'Analyse strategique',
       contentType: index % 3 === 0 ? 'Post LinkedIn' : 'Article de blog',
       keywords: [params.theme, params.sector ?? 'SEO'].filter(Boolean),
       searchIntent: 'Informationnelle',
@@ -602,12 +610,7 @@ export class IdeasService {
         id: item.id,
         type: 'CURATION' as const,
         title: item.title,
-        text: [
-          item.title,
-          item.source,
-          item.topics?.join(' '),
-          item.notes,
-        ]
+        text: [item.title, item.source, item.topics?.join(' '), item.notes]
           .filter(Boolean)
           .join(' '),
       })),

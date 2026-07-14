@@ -7,6 +7,7 @@ import { ConfigService } from '@nestjs/config';
 import {
   AiCompletionInput,
   AiCompletionResult,
+  AiModelOption,
   AiMessage,
   AiProvider,
   AiProviderStatus,
@@ -32,6 +33,20 @@ type GeminiResponse = {
   };
 };
 
+type GeminiModelsResponse = {
+  models?: Array<{
+    name?: unknown;
+    displayName?: unknown;
+    supportedGenerationMethods?: unknown;
+  }>;
+  nextPageToken?: unknown;
+};
+
+const nonTextModelNamePattern =
+  /(?:^|[-_])(image|vision|audio|video|tts|live|music|lyria|veo|embedding|aqa|nano-banana)(?:[-_]|$)/i;
+const mainstreamTextModelNamePattern =
+  /^gemini-\d+(?:\.\d+)?-(?:flash(?:-lite)?|pro)(?:-latest)?$/i;
+
 /**
  * Provider for the Gemini GenerateContent REST API.
  *
@@ -46,7 +61,7 @@ export class GeminiProvider implements AiProvider {
   constructor(private readonly configService: ConfigService) {}
 
   async complete(input: AiCompletionInput): Promise<AiCompletionResult> {
-    const missingConfig = this.getMissingConfig();
+    const missingConfig = this.getMissingConfig(input.apiKey);
 
     if (missingConfig.length > 0) {
       throw new BadRequestException(
@@ -60,7 +75,7 @@ export class GeminiProvider implements AiProvider {
     const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
     try {
-      const response = await fetch(this.createUrl(model), {
+      const response = await fetch(this.createUrl(model, input.apiKey), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -128,6 +143,68 @@ export class GeminiProvider implements AiProvider {
     return this.getMissingConfig().length === 0;
   }
 
+  async listModels(apiKey?: string): Promise<AiModelOption[]> {
+    const missingConfig = this.getMissingConfig(apiKey);
+
+    if (missingConfig.length > 0) {
+      throw new BadRequestException(
+        `AI provider ${this.id} is not configured: ${missingConfig.join(', ')}`,
+      );
+    }
+
+    const models = new Map<string, AiModelOption>();
+    let pageToken: string | undefined;
+
+    do {
+      const response = await fetch(this.createModelsUrl(apiKey, pageToken));
+
+      if (!response.ok) {
+        const details = await this.readErrorDetails(response);
+        throw new BadGatewayException(
+          `AI provider ${this.id} returned ${response.status}${details}`,
+        );
+      }
+
+      const body = (await response.json()) as GeminiModelsResponse;
+      body.models?.forEach((model) => {
+        const name = typeof model.name === 'string' ? model.name : '';
+        const supportsGeneration = Array.isArray(
+          model.supportedGenerationMethods,
+        )
+          ? model.supportedGenerationMethods.includes('generateContent')
+          : false;
+
+        const id = name.replace(/^models\//, '');
+
+        if (
+          !name ||
+          !supportsGeneration ||
+          !id.startsWith('gemini-') ||
+          !mainstreamTextModelNamePattern.test(id) ||
+          nonTextModelNamePattern.test(id)
+        ) {
+          return;
+        }
+
+        const label =
+          typeof model.displayName === 'string' && model.displayName.trim()
+            ? model.displayName.trim()
+            : id;
+
+        models.set(id, { id, label });
+      });
+
+      pageToken =
+        typeof body.nextPageToken === 'string' && body.nextPageToken.trim()
+          ? body.nextPageToken
+          : undefined;
+    } while (pageToken);
+
+    return Array.from(models.values()).sort((left, right) =>
+      left.label.localeCompare(right.label),
+    );
+  }
+
   private createPayload(input: AiCompletionInput) {
     const systemInstruction = this.createSystemInstruction(input.messages);
     const contents = this.createContents(input.messages);
@@ -153,7 +230,9 @@ export class GeminiProvider implements AiProvider {
               responseFormat: {
                 text: {
                   mimeType: 'APPLICATION_JSON',
-                  ...(input.responseSchema ? { schema: input.responseSchema } : {}),
+                  ...(input.responseSchema
+                    ? { schema: input.responseSchema }
+                    : {}),
                 },
               },
             }
@@ -181,11 +260,23 @@ export class GeminiProvider implements AiProvider {
       }));
   }
 
-  private createUrl(model: string) {
+  private createUrl(model: string, apiKey?: string) {
     const url = new URL(
       `${this.getBaseUrl()}/${this.normalizeModelResource(model)}:generateContent`,
     );
-    url.searchParams.set('key', this.getApiKey() ?? '');
+    url.searchParams.set('key', this.getApiKey(apiKey) ?? '');
+
+    return url;
+  }
+
+  private createModelsUrl(apiKey?: string, pageToken?: string) {
+    const url = new URL(`${this.getBaseUrl()}/models`);
+    url.searchParams.set('key', this.getApiKey(apiKey) ?? '');
+    url.searchParams.set('pageSize', '1000');
+
+    if (pageToken) {
+      url.searchParams.set('pageToken', pageToken);
+    }
 
     return url;
   }
@@ -205,8 +296,10 @@ export class GeminiProvider implements AiProvider {
     );
   }
 
-  private getApiKey() {
-    return this.configService.get<string>('GEMINI_API_KEY')?.trim();
+  private getApiKey(apiKey?: string) {
+    return (
+      apiKey?.trim() || this.configService.get<string>('GEMINI_API_KEY')?.trim()
+    );
   }
 
   private getDefaultModel() {
@@ -227,8 +320,8 @@ export class GeminiProvider implements AiProvider {
       : 30000;
   }
 
-  private getMissingConfig() {
-    return [!this.getApiKey() ? 'GEMINI_API_KEY' : undefined].filter(
+  private getMissingConfig(apiKey?: string) {
+    return [!this.getApiKey(apiKey) ? 'GEMINI_API_KEY' : undefined].filter(
       (value): value is string => Boolean(value),
     );
   }

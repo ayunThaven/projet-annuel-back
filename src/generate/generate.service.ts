@@ -17,7 +17,7 @@ export class GenerateService {
   ) {}
 
   async generateContent(agencyId: string, input: GenerateContentDto) {
-    const aiResult = await this.aiService.generateText({
+    const aiResult = await this.aiService.generateTextForAgency(agencyId, {
       prompt: this.buildGenerationPrompt(input),
       systemPrompt:
         'Tu es un redacteur SEO senior. Genere un contenu exploitable, structure et pret a adapter dans SEO Genius.',

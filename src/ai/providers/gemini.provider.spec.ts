@@ -103,7 +103,9 @@ describe('GeminiProvider', () => {
       ),
     );
     global.fetch = fetchMock;
-    const provider = new GeminiProvider(createConfig({ GEMINI_API_KEY: 'secret' }));
+    const provider = new GeminiProvider(
+      createConfig({ GEMINI_API_KEY: 'secret' }),
+    );
 
     await provider.complete({
       messages: [{ role: 'user', content: 'Retourne un objet JSON.' }],
@@ -116,5 +118,48 @@ describe('GeminiProvider', () => {
         responseFormat: { text: { mimeType: 'APPLICATION_JSON' } },
       },
     });
+  });
+
+  it('lists only models that support content generation', async () => {
+    const fetchMock = jest.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          models: [
+            {
+              name: 'models/gemini-3.5-flash',
+              displayName: 'Gemini 3.5 Flash',
+              supportedGenerationMethods: ['generateContent'],
+            },
+            {
+              name: 'models/text-embedding-004',
+              supportedGenerationMethods: ['embedContent'],
+            },
+            {
+              name: 'models/gemini-2.5-flash-image',
+              supportedGenerationMethods: ['generateContent'],
+            },
+            {
+              name: 'models/gemini-3-flash-preview',
+              supportedGenerationMethods: ['generateContent'],
+            },
+          ],
+        }),
+        { status: 200 },
+      ),
+    );
+    global.fetch = fetchMock;
+    const provider = new GeminiProvider(
+      createConfig({ GEMINI_API_KEY: 'secret' }),
+    );
+
+    await expect(provider.listModels()).resolves.toEqual([
+      { id: 'gemini-3.5-flash', label: 'Gemini 3.5 Flash' },
+    ]);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      new URL(
+        'https://generativelanguage.googleapis.com/v1beta/models?key=secret&pageSize=1000',
+      ),
+    );
   });
 });

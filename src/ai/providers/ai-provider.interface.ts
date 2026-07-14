@@ -14,6 +14,7 @@ export type AiCompletionInput = {
   maxTokens?: number;
   responseFormat?: 'json';
   responseSchema?: AiJsonSchema;
+  apiKey?: string;
 };
 
 export type AiUsage = {
@@ -35,6 +36,11 @@ export type AiProviderStatus = {
   configured: boolean;
   defaultModel: string;
   missingConfig?: string[];
+};
+
+export type AiModelOption = {
+  id: string;
+  label: string;
 };
 
 /**
