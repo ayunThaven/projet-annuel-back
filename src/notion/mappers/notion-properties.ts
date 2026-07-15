@@ -103,7 +103,8 @@ export function readUrl(page: NotionPage, key: string): string | null {
   return url ?? null;
 }
 
-function readPlainText(
+/** Concatene le texte brut d'un tableau de rich text Notion (title, etc). */
+export function readPlainText(
   items:
     | Array<{ plain_text?: string; text?: { content?: string } }>
     | undefined,

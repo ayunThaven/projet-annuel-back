@@ -8,12 +8,14 @@ import {
 import {
   NotionApiError,
   NotionClientPort,
+  NotionDataSourceSummary,
   NotionErrorKind,
   NotionPage,
   NotionProperties,
   QueryDatabaseParams,
   QueryDatabaseResult,
 } from './notion.types';
+import { readPlainText } from './mappers/notion-properties';
 
 const ERROR_CODE_KINDS: Partial<Record<APIErrorCode, NotionErrorKind>> = {
   [APIErrorCode.Unauthorized]: 'UNAUTHORIZED',
@@ -138,6 +140,32 @@ export class SdkNotionClient implements NotionClientPort {
   async archivePage(pageId: string): Promise<void> {
     try {
       await this.client.pages.update({ page_id: pageId, archived: true });
+    } catch (error) {
+      throw toNotionApiError(error);
+    }
+  }
+
+  async searchDataSources(query: string): Promise<NotionDataSourceSummary[]> {
+    try {
+      const response = await this.client.search({
+        query,
+        filter: { property: 'object', value: 'data_source' },
+      });
+
+      return response.results
+        .filter(
+          (result): result is typeof result & { title: unknown } =>
+            (result as { object?: string }).object === 'data_source' &&
+            'title' in result,
+        )
+        .map((result) => {
+          const record = result as unknown as {
+            id: string;
+            title: Array<{ plain_text?: string; text?: { content?: string } }>;
+          };
+
+          return { id: record.id, title: readPlainText(record.title) };
+        });
     } catch (error) {
       throw toNotionApiError(error);
     }

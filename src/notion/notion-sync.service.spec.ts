@@ -19,6 +19,10 @@ describe('NotionSyncService', () => {
   let service: NotionSyncService;
   let contentRepository: { find: jest.Mock; save: jest.Mock };
   let fakeClient: jest.Mocked<NotionClientPort>;
+  let notionOAuth: {
+    getRuntimeToken: jest.Mock;
+    resolveDatabaseId: jest.Mock;
+  };
 
   const agency = { id: 'agency-1', notionDatabaseId: 'db-1' } as AgencyEntity;
 
@@ -29,6 +33,7 @@ describe('NotionSyncService', () => {
       updatePage: jest.fn().mockResolvedValue(page('page-updated')),
       retrievePage: jest.fn(),
       archivePage: jest.fn().mockResolvedValue(undefined),
+      searchDataSources: jest.fn().mockResolvedValue([]),
     };
 
     contentRepository = {
@@ -56,7 +61,13 @@ describe('NotionSyncService', () => {
         },
         {
           provide: NotionOAuthService,
-          useValue: { getRuntimeToken: jest.fn().mockResolvedValue('token') },
+          useFactory: () => {
+            notionOAuth = {
+              getRuntimeToken: jest.fn().mockResolvedValue('token'),
+              resolveDatabaseId: jest.fn().mockResolvedValue(null),
+            };
+            return notionOAuth;
+          },
         },
         { provide: ConfigService, useValue: { get: jest.fn() } },
       ],
@@ -133,6 +144,28 @@ describe('NotionSyncService', () => {
         expect.anything(),
       );
       expect(summary.updated).toBe(1);
+    });
+
+    it("utilise la base auto-detectee de l'agence plutot que l'override legacy ou la variable d'env", async () => {
+      notionOAuth.resolveDatabaseId.mockResolvedValue('discovered-db-id');
+      const scheduled = {
+        id: 'c-discovered',
+        status: ContentStatus.SCHEDULED,
+        notionPageId: null,
+        syncStatus: SyncStatus.PENDING,
+      } as ContentItemEntity;
+      contentRepository.find.mockResolvedValue([scheduled]);
+
+      await service.pushContent(agency);
+
+      expect(notionOAuth.resolveDatabaseId).toHaveBeenCalledWith(
+        agency.id,
+        'content',
+      );
+      expect(fakeClient.createPage).toHaveBeenCalledWith(
+        'discovered-db-id',
+        expect.anything(),
+      );
     });
   });
 

@@ -162,7 +162,7 @@ export class NotionSyncService {
     toProperties: (entity: T) => NotionProperties,
     isCalendarEligible?: (entity: T) => boolean,
   ): Promise<SyncSummary> {
-    const databaseId = this.resolveDatabaseId(repository, agency);
+    const databaseId = await this.resolveDatabaseId(repository, agency);
     const token = await this.notionOAuth.getRuntimeToken(agency.id);
     const client = this.notionClient.getClient(token);
     const summary = emptySummary();
@@ -273,7 +273,7 @@ export class NotionSyncService {
     applyPage: (entity: T, page: NotionPage) => void,
     createEntity: () => T,
   ): Promise<SyncSummary> {
-    const databaseId = this.resolveDatabaseId(repository, agency);
+    const databaseId = await this.resolveDatabaseId(repository, agency);
     const token = await this.notionOAuth.getRuntimeToken(agency.id);
     const client = this.notionClient.getClient(token);
     const summary = emptySummary();
@@ -389,15 +389,32 @@ export class NotionSyncService {
     return pages;
   }
 
-  private resolveDatabaseId<T extends NotionSyncable>(
+  /**
+   * Determine la base Notion cible, par ordre de priorite :
+   * 1. Auto-detectee dans l'espace connecte de l'agence (cf. `NotionOAuthService.resolveDatabaseId`) —
+   *    chaque agence pointe ainsi vers ses propres bases, meme si elle a
+   *    duplique le template dans son propre workspace.
+   * 2. Override legacy `agency.notionDatabaseId` (contenu uniquement, garde
+   *    pour compatibilite).
+   * 3. Variable d'environnement globale (utile en single-tenant/demo).
+   */
+  private async resolveDatabaseId<T extends NotionSyncable>(
     repository: Repository<T>,
     agency: AgencyEntity,
-  ): string {
+  ): Promise<string> {
     const isContent = repository.metadata.name === ContentItemEntity.name;
-    const databaseId = isContent
-      ? (agency.notionDatabaseId ??
-        this.config.get<string>('NOTION_CONTENT_DATABASE_ID'))
+    const target = isContent ? 'content' : 'curation';
+
+    const discovered = await this.notionOAuth.resolveDatabaseId(
+      agency.id,
+      target,
+    );
+    const legacy = isContent ? agency.notionDatabaseId : null;
+    const envFallback = isContent
+      ? this.config.get<string>('NOTION_CONTENT_DATABASE_ID')
       : this.config.get<string>('NOTION_CURATION_DATABASE_ID');
+
+    const databaseId = discovered ?? legacy ?? envFallback;
 
     if (!databaseId) {
       throw new Error(

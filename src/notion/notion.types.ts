@@ -48,6 +48,18 @@ export interface NotionClientPort {
   retrievePage(pageId: string): Promise<NotionPage>;
   /** Archive (soft-delete) une page, ex: contenu retire du calendrier. */
   archivePage(pageId: string): Promise<void>;
+  /**
+   * Recherche les data sources (bases) visibles par le token, filtrees par
+   * titre. Sert a auto-detecter les bases "Articles"/"Centre de ressources"
+   * d'un espace Notion connecte, sans configuration manuelle d'ID.
+   */
+  searchDataSources(query: string): Promise<NotionDataSourceSummary[]>;
+}
+
+/** Resume minimal d'une data source Notion trouvee par recherche. */
+export interface NotionDataSourceSummary {
+  id: string;
+  title: string;
 }
 
 /** Fabrique un client a partir d'un token d'integration Notion. */

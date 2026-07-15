@@ -20,11 +20,21 @@ import { AgencyEntity } from '../agencies/entities/agency.entity';
 import { AgencyMembershipEntity } from '../agencies/entities/agency-membership.entity';
 import { AgencyRole } from '../common/enums/agency-role.enum';
 import { AgencyNotionConnectionEntity } from './entities/agency-notion-connection.entity';
+import { NotionClientService } from './notion-client.service';
 
 const NOTION_AUTHORIZE_URL = 'https://api.notion.com/v1/oauth/authorize';
 const NOTION_TOKEN_URL = 'https://api.notion.com/v1/oauth/token';
 /** Duree de validite du `state` OAuth (anti-CSRF), en secondes. */
 const STATE_TTL_SECONDS = 600;
+
+/** Cible de synchronisation : quelle base Notion du template chercher. */
+export type NotionSyncTarget = 'content' | 'curation';
+
+/** Titres des bases du template officiel, utilises pour l'auto-detection. */
+const DATA_SOURCE_TITLES: Record<NotionSyncTarget, string> = {
+  content: 'Articles',
+  curation: 'Centre de ressources',
+};
 
 type NotionOAuthState = {
   agencyId: string;
@@ -56,6 +66,7 @@ export class NotionOAuthService {
     @InjectRepository(AgencyMembershipEntity)
     private readonly membershipsRepository: Repository<AgencyMembershipEntity>,
     private readonly configService: ConfigService,
+    private readonly notionClient: NotionClientService,
   ) {}
 
   /**
@@ -124,12 +135,98 @@ export class NotionOAuthService {
     return this.decrypt(connection.accessTokenEncrypted);
   }
 
+  /**
+   * Data source id (base "Articles"/"Centre de ressources") de l'espace
+   * connecte pour cette agence. Mis en cache sur la connexion des la premiere
+   * decouverte reussie ; `null` si pas connecte ou si la base est introuvable
+   * (pas partagee avec l'integration, ou renommee).
+   *
+   * Auto-detecte par titre plutot que configure a la main : chaque agence
+   * peut avoir duplique le template dans son propre espace Notion, avec des
+   * ids differents des autres — l'OAuth a lui seul ne suffit pas a le savoir.
+   */
+  async resolveDatabaseId(
+    agencyId: string,
+    target: NotionSyncTarget,
+  ): Promise<string | null> {
+    const connection = await this.connectionRepository.findOne({
+      where: { agency: { id: agencyId } },
+      select: {
+        id: true,
+        accessTokenEncrypted: true,
+        contentDatabaseId: true,
+        curationDatabaseId: true,
+      },
+    });
+
+    if (!connection?.accessTokenEncrypted) {
+      return null;
+    }
+
+    const cached =
+      target === 'content'
+        ? connection.contentDatabaseId
+        : connection.curationDatabaseId;
+
+    if (cached) {
+      return cached;
+    }
+
+    const discovered = await this.discoverDatabaseId(
+      this.decrypt(connection.accessTokenEncrypted),
+      target,
+    );
+
+    if (!discovered) {
+      return null;
+    }
+
+    if (target === 'content') {
+      connection.contentDatabaseId = discovered;
+    } else {
+      connection.curationDatabaseId = discovered;
+    }
+    await this.connectionRepository.save(connection);
+
+    return discovered;
+  }
+
   async disconnect(agencyId: string): Promise<{ success: true }> {
     await this.connectionRepository.delete({ agency: { id: agencyId } });
     return { success: true };
   }
 
   // --- Interne ---
+
+  /**
+   * Recherche la base dont le titre correspond (exact, puis a defaut
+   * contient) au nom officiel du template. Ne fait pas echouer l'appelant :
+   * une decouverte manquee retourne simplement `null` (log en warning).
+   */
+  private async discoverDatabaseId(
+    token: string,
+    target: NotionSyncTarget,
+  ): Promise<string | null> {
+    const title = DATA_SOURCE_TITLES[target];
+
+    try {
+      const client = this.notionClient.getClient(token);
+      const results = await client.searchDataSources(title);
+      const normalize = (value: string) => value.trim().toLowerCase();
+      const wanted = normalize(title);
+
+      const match =
+        results.find((result) => normalize(result.title) === wanted) ??
+        results.find((result) => normalize(result.title).includes(wanted));
+
+      return match?.id ?? null;
+    } catch (error) {
+      this.logger.warn(
+        `Notion database auto-discovery failed for "${title}": ${String(error)}`,
+      );
+      return null;
+    }
+  }
 
   private async exchangeCodeForToken(
     code: string,

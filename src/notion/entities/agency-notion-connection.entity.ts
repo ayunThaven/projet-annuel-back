@@ -42,6 +42,19 @@ export class AgencyNotionConnectionEntity {
   @Column({ type: 'varchar', nullable: true })
   botId: string | null;
 
+  /**
+   * Data source ids auto-detectes dans l'espace connecte (recherche par titre
+   * "Articles"/"Centre de ressources"), mis en cache ici au premier push
+   * reussi. Evite d'exiger une configuration manuelle par agence : chaque
+   * connexion OAuth pointe vers ses propres bases, meme si l'utilisateur a
+   * duplique le template dans son propre workspace.
+   */
+  @Column({ type: 'varchar', nullable: true })
+  contentDatabaseId: string | null;
+
+  @Column({ type: 'varchar', nullable: true })
+  curationDatabaseId: string | null;
+
   @CreateDateColumn()
   createdAt: Date;
 

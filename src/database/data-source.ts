@@ -21,6 +21,7 @@ import { AgencyAiSettingsEntity } from '../ai/entities/agency-ai-settings.entity
 import { AgencyAiSettings1783987200000 } from './migrations/1783987200000-agency-ai-settings';
 import { AgencyNotionConnectionEntity } from '../notion/entities/agency-notion-connection.entity';
 import { AgencyNotionConnections1784592000000 } from './migrations/1784592000000-agency-notion-connections';
+import { AgencyNotionConnectionDatabaseIds1784600000000 } from './migrations/1784600000000-agency-notion-connection-database-ids';
 
 config({ quiet: true });
 
@@ -52,6 +53,7 @@ const baseOptions: DataSourceOptions = {
     AddContentBody1783900800000,
     AgencyAiSettings1783987200000,
     AgencyNotionConnections1784592000000,
+    AgencyNotionConnectionDatabaseIds1784600000000,
   ],
   synchronize: false,
   ...(useSsl ? { ssl: { rejectUnauthorized: false } } : {}),
