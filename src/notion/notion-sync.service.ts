@@ -1,8 +1,9 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, Repository } from 'typeorm';
+import { In, IsNull, Not, Repository } from 'typeorm';
 import { AgencyEntity } from '../agencies/entities/agency.entity';
+import { ContentStatus } from '../common/enums/content-status.enum';
 import { SyncStatus } from '../common/enums/sync-status.enum';
 import { ContentItemEntity } from '../content/entities/content-item.entity';
 import { CurationItemEntity } from '../curation/entities/curation-item.entity';
@@ -11,7 +12,14 @@ import * as curationMapper from './mappers/curation.mapper';
 import { NotionClientService } from './notion-client.service';
 import { NotionOAuthService } from './notion-oauth.service';
 import { NotionSyncable } from './notion-syncable';
-import { NotionClientPort, NotionPage, NotionProperties } from './notion.types';
+import {
+  NotionApiError,
+  NotionClientPort,
+  NotionPage,
+  NotionProperties,
+} from './notion.types';
+
+const PUSHABLE_SYNC_STATUSES = [SyncStatus.PENDING, SyncStatus.ERROR];
 
 /** Bilan chiffre d'une operation de synchronisation. */
 export interface SyncSummary {
@@ -75,14 +83,42 @@ export class NotionSyncService {
     );
   }
 
+  /**
+   * Pousse vers la base Notion "Articles" (calendrier) : seuls les contenus
+   * `SCHEDULED`/`PUBLISHED` y figurent. Un contenu qui repasse a un statut
+   * anterieur alors qu'il a deja une page Notion voit cette page archivee au
+   * lieu d'etre mise a jour (cf. `CALENDAR_ELIGIBLE_STATUSES`).
+   */
   async pushContent(agency: AgencyEntity): Promise<SyncSummary> {
-    return this.pushItems(this.contentRepository, agency, (entity) =>
-      contentMapper.toNotionProperties(entity),
+    const items = await this.contentRepository.find({
+      where: [
+        {
+          syncStatus: In(PUSHABLE_SYNC_STATUSES),
+          status: In(contentMapper.CALENDAR_ELIGIBLE_STATUSES),
+        },
+        {
+          syncStatus: In(PUSHABLE_SYNC_STATUSES),
+          notionPageId: Not(IsNull()),
+        },
+      ] as never,
+    });
+
+    return this.pushEntities(
+      this.contentRepository,
+      agency,
+      items,
+      (entity) => contentMapper.toNotionProperties(entity),
+      (entity) =>
+        contentMapper.CALENDAR_ELIGIBLE_STATUSES.includes(entity.status),
     );
   }
 
   async pushCuration(agency: AgencyEntity): Promise<SyncSummary> {
-    return this.pushItems(this.curationRepository, agency, (entity) =>
+    const items = await this.curationRepository.find({
+      where: { syncStatus: In(PUSHABLE_SYNC_STATUSES) } as never,
+    });
+
+    return this.pushEntities(this.curationRepository, agency, items, (entity) =>
       curationMapper.toNotionProperties(entity),
     );
   }
@@ -91,8 +127,18 @@ export class NotionSyncService {
     return this.pullItems(
       this.contentRepository,
       agency,
-      (entity, page) =>
-        Object.assign(entity, contentMapper.fromNotionPage(page)),
+      (entity, page) => {
+        const isNewEntity = !entity.id;
+        Object.assign(entity, contentMapper.fromNotionPage(page));
+
+        // Une page creee directement dans Notion n'a pas de statut applicatif :
+        // on la considere planifiee si elle porte une date, brouillon sinon.
+        if (isNewEntity) {
+          entity.status = entity.publicationDate
+            ? ContentStatus.SCHEDULED
+            : ContentStatus.DRAFT;
+        }
+      },
       () => this.contentRepository.create({ agency }),
     );
   }
@@ -109,24 +155,25 @@ export class NotionSyncService {
 
   // --- Coeur generique ---
 
-  private async pushItems<T extends NotionSyncable>(
+  private async pushEntities<T extends NotionSyncable>(
     repository: Repository<T>,
     agency: AgencyEntity,
+    items: T[],
     toProperties: (entity: T) => NotionProperties,
+    isCalendarEligible?: (entity: T) => boolean,
   ): Promise<SyncSummary> {
     const databaseId = this.resolveDatabaseId(repository, agency);
     const token = await this.notionOAuth.getRuntimeToken(agency.id);
     const client = this.notionClient.getClient(token);
     const summary = emptySummary();
 
-    const items = await repository.find({
-      where: {
-        syncStatus: In([SyncStatus.PENDING, SyncStatus.ERROR]),
-      } as never,
-    });
-
     for (const item of items) {
       try {
+        if (isCalendarEligible && !isCalendarEligible(item)) {
+          await this.archiveIfSynced(client, item, repository, summary);
+          continue;
+        }
+
         const properties = toProperties(item);
         const page = item.notionPageId
           ? await client.updatePage(item.notionPageId, properties)
@@ -141,6 +188,37 @@ export class NotionSyncService {
         this.markSynced(item, page);
         await repository.save(item);
       } catch (error) {
+        if (error instanceof NotionApiError && error.kind === 'UNAUTHORIZED') {
+          // Le token est invalide/revoque : retenter les items suivants avec
+          // le meme client echouerait de la meme facon, inutile d'insister.
+          summary.errors += 1;
+          item.syncStatus = SyncStatus.ERROR;
+          await repository.save(item);
+          this.logger.error(
+            `Notion push interrompu pour l'agence ${agency.id} (${repository.metadata.name}) : token invalide ou revoque, reconnexion Notion necessaire.`,
+          );
+          break;
+        }
+
+        if (
+          error instanceof NotionApiError &&
+          error.kind === 'NOT_FOUND' &&
+          item.notionPageId
+        ) {
+          // La page pointee n'existe plus cote Notion (supprimee a la main) :
+          // on oublie le pointeur pour qu'un prochain push en recree une
+          // plutot que de rester bloque en erreur indefiniment.
+          item.notionPageId = null;
+          item.notionLastEditedAt = null;
+          item.syncStatus = SyncStatus.PENDING;
+          await repository.save(item);
+          summary.skipped += 1;
+          this.logger.warn(
+            `Page Notion introuvable pour ${repository.metadata.name} ${item.id} : sera recreee au prochain push.`,
+          );
+          continue;
+        }
+
         summary.errors += 1;
         item.syncStatus = SyncStatus.ERROR;
         await repository.save(item);
@@ -151,6 +229,42 @@ export class NotionSyncService {
     }
 
     return summary;
+  }
+
+  /**
+   * Un contenu qui n'est plus eligible au calendrier (ex: retour a DRAFT)
+   * perd sa page Notion : archivee si elle existe, sinon rien a faire (il
+   * n'a jamais ete pousse).
+   */
+  private async archiveIfSynced<T extends NotionSyncable>(
+    client: NotionClientPort,
+    item: T,
+    repository: Repository<T>,
+    summary: SyncSummary,
+  ): Promise<void> {
+    if (!item.notionPageId) {
+      item.syncStatus = SyncStatus.SYNCED;
+      await repository.save(item);
+      summary.skipped += 1;
+      return;
+    }
+
+    try {
+      await client.archivePage(item.notionPageId);
+    } catch (error) {
+      if (!(error instanceof NotionApiError && error.kind === 'NOT_FOUND')) {
+        throw error;
+      }
+      // Deja supprimee/archivee cote Notion : rien a faire de plus, on
+      // considere l'archivage comme reussi.
+    }
+
+    item.notionPageId = null;
+    item.notionLastEditedAt = null;
+    item.lastSyncedAt = new Date();
+    item.syncStatus = SyncStatus.SYNCED;
+    await repository.save(item);
+    summary.updated += 1;
   }
 
   private async pullItems<T extends NotionSyncable>(
@@ -164,7 +278,22 @@ export class NotionSyncService {
     const client = this.notionClient.getClient(token);
     const summary = emptySummary();
 
-    for (const page of await this.fetchAllPages(client, databaseId)) {
+    let pages: NotionPage[];
+    try {
+      pages = await this.fetchAllPages(client, databaseId);
+    } catch (error) {
+      const reason =
+        error instanceof NotionApiError && error.kind === 'UNAUTHORIZED'
+          ? 'token invalide ou revoque, reconnexion Notion necessaire'
+          : String(error);
+      this.logger.error(
+        `Pull impossible pour ${repository.metadata.name} (agence ${agency.id}) : ${reason}`,
+      );
+      summary.errors += 1;
+      return summary;
+    }
+
+    for (const page of pages) {
       try {
         const existing = await repository.findOne({
           where: { notionPageId: page.id } as never,

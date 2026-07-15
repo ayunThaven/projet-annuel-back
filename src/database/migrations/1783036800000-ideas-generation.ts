@@ -142,14 +142,18 @@ export class IdeasGeneration1783036800000 implements MigrationInterface {
       DROP CONSTRAINT "FK_content_ideas_agency"
     `);
 
-    await queryRunner.query('DROP INDEX "IDX_idea_generation_runs_agency_created"');
+    await queryRunner.query(
+      'DROP INDEX "IDX_idea_generation_runs_agency_created"',
+    );
     await queryRunner.query('DROP INDEX "IDX_content_ideas_agency_status"');
     await queryRunner.query('DROP TABLE "idea_generation_runs"');
     await queryRunner.query('DROP TABLE "idea_generation_settings"');
     await queryRunner.query('DROP TABLE "content_ideas"');
     await queryRunner.query('DROP TYPE "idea_generation_runs_status_enum"');
     await queryRunner.query('DROP TYPE "idea_generation_runs_source_enum"');
-    await queryRunner.query('DROP TYPE "idea_generation_settings_cadence_enum"');
+    await queryRunner.query(
+      'DROP TYPE "idea_generation_settings_cadence_enum"',
+    );
     await queryRunner.query('DROP TYPE "content_ideas_duplicateStatus_enum"');
     await queryRunner.query('DROP TYPE "content_ideas_status_enum"');
     await queryRunner.query('DROP TYPE "content_ideas_source_enum"');

@@ -1,8 +1,6 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class IdeaGenerationDailyDefault1783123200000
-  implements MigrationInterface
-{
+export class IdeaGenerationDailyDefault1783123200000 implements MigrationInterface {
   name = 'IdeaGenerationDailyDefault1783123200000';
 
   async up(queryRunner: QueryRunner): Promise<void> {
