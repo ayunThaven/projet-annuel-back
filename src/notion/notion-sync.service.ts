@@ -9,6 +9,7 @@ import { CurationItemEntity } from '../curation/entities/curation-item.entity';
 import * as contentMapper from './mappers/content.mapper';
 import * as curationMapper from './mappers/curation.mapper';
 import { NotionClientService } from './notion-client.service';
+import { NotionOAuthService } from './notion-oauth.service';
 import { NotionSyncable } from './notion-syncable';
 import { NotionClientPort, NotionPage, NotionProperties } from './notion.types';
 
@@ -54,6 +55,7 @@ export class NotionSyncService {
     @InjectRepository(CurationItemEntity)
     private readonly curationRepository: Repository<CurationItemEntity>,
     private readonly notionClient: NotionClientService,
+    private readonly notionOAuth: NotionOAuthService,
     private readonly config: ConfigService,
   ) {}
 
@@ -113,7 +115,8 @@ export class NotionSyncService {
     toProperties: (entity: T) => NotionProperties,
   ): Promise<SyncSummary> {
     const databaseId = this.resolveDatabaseId(repository, agency);
-    const client = this.notionClient.getClient();
+    const token = await this.notionOAuth.getRuntimeToken(agency.id);
+    const client = this.notionClient.getClient(token);
     const summary = emptySummary();
 
     const items = await repository.find({
@@ -157,7 +160,8 @@ export class NotionSyncService {
     createEntity: () => T,
   ): Promise<SyncSummary> {
     const databaseId = this.resolveDatabaseId(repository, agency);
-    const client = this.notionClient.getClient();
+    const token = await this.notionOAuth.getRuntimeToken(agency.id);
+    const client = this.notionClient.getClient(token);
     const summary = emptySummary();
 
     for (const page of await this.fetchAllPages(client, databaseId)) {
