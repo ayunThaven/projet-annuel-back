@@ -9,8 +9,14 @@ import { AuthModule } from '../auth/auth.module';
 import { ContentItemEntity } from '../content/entities/content-item.entity';
 import { CurationItemEntity } from '../curation/entities/curation-item.entity';
 import { UserEntity } from '../users/user.entity';
+import { AgencyNotionConnectionEntity } from './entities/agency-notion-connection.entity';
 import { NotionClientService } from './notion-client.service';
 import { NotionController } from './notion.controller';
+import {
+  NotionOAuthCallbackController,
+  NotionOAuthController,
+} from './notion-oauth.controller';
+import { NotionOAuthService } from './notion-oauth.service';
 import { NOTION_CLIENT_FACTORY } from './notion.constants';
 import { NotionSyncScheduler } from './notion-sync.scheduler';
 import { NotionSyncService } from './notion-sync.service';
@@ -33,19 +39,25 @@ const notionClientFactory: NotionClientFactory = (auth: string) =>
       ContentItemEntity,
       CurationItemEntity,
       AgencyEntity,
+      AgencyNotionConnectionEntity,
       // Repos requis par les guards (AuthGuard, AgencyRolesGuard) instancies
       // dans le contexte de ce module.
       AgencyMembershipEntity,
       UserEntity,
     ]),
   ],
-  controllers: [NotionController],
+  controllers: [
+    NotionController,
+    NotionOAuthController,
+    NotionOAuthCallbackController,
+  ],
   providers: [
     { provide: NOTION_CLIENT_FACTORY, useValue: notionClientFactory },
     NotionClientService,
+    NotionOAuthService,
     NotionSyncService,
     NotionSyncScheduler,
   ],
-  exports: [NotionSyncService, NotionClientService],
+  exports: [NotionSyncService, NotionClientService, NotionOAuthService],
 })
 export class NotionModule {}

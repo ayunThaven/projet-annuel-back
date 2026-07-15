@@ -19,6 +19,8 @@ import { FeedSources1782960000000 } from './migrations/1782960000000-feed-source
 import { AddContentBody1783900800000 } from './migrations/1783900800000-add-content-body';
 import { AgencyAiSettingsEntity } from '../ai/entities/agency-ai-settings.entity';
 import { AgencyAiSettings1783987200000 } from './migrations/1783987200000-agency-ai-settings';
+import { AgencyNotionConnectionEntity } from '../notion/entities/agency-notion-connection.entity';
+import { AgencyNotionConnections1784592000000 } from './migrations/1784592000000-agency-notion-connections';
 
 config({ quiet: true });
 
@@ -38,6 +40,7 @@ const baseOptions: DataSourceOptions = {
     IdeaGenerationRunEntity,
     FeedSourceEntity,
     AgencyAiSettingsEntity,
+    AgencyNotionConnectionEntity,
     UserEntity,
   ],
   migrations: [
@@ -48,6 +51,7 @@ const baseOptions: DataSourceOptions = {
     FeedSources1782960000000,
     AddContentBody1783900800000,
     AgencyAiSettings1783987200000,
+    AgencyNotionConnections1784592000000,
   ],
   synchronize: false,
   ...(useSsl ? { ssl: { rejectUnauthorized: false } } : {}),
