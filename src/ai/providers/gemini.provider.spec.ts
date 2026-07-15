@@ -120,7 +120,7 @@ describe('GeminiProvider', () => {
     });
   });
 
-  it('lists only models that support content generation', async () => {
+  it('lists only active models that support content generation', async () => {
     const fetchMock = jest.fn().mockResolvedValue(
       new Response(
         JSON.stringify({
@@ -128,6 +128,14 @@ describe('GeminiProvider', () => {
             {
               name: 'models/gemini-3.5-flash',
               displayName: 'Gemini 3.5 Flash',
+              supportedGenerationMethods: ['generateContent'],
+            },
+            {
+              name: 'models/gemini-2.0-flash',
+              supportedGenerationMethods: ['generateContent'],
+            },
+            {
+              name: 'models/gemini-2.0-flash-lite',
               supportedGenerationMethods: ['generateContent'],
             },
             {
@@ -141,6 +149,16 @@ describe('GeminiProvider', () => {
             {
               name: 'models/gemini-3-flash-preview',
               supportedGenerationMethods: ['generateContent'],
+            },
+            {
+              name: 'models/gemini-2.5-pro',
+              supportedGenerationMethods: ['generateContent'],
+              modelStatus: { modelStage: 'LEGACY' },
+            },
+            {
+              name: 'models/gemini-2.5-flash',
+              supportedGenerationMethods: ['generateContent'],
+              modelStatus: { modelStage: 'DEPRECATED' },
             },
           ],
         }),

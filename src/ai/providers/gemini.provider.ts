@@ -38,6 +38,9 @@ type GeminiModelsResponse = {
     name?: unknown;
     displayName?: unknown;
     supportedGenerationMethods?: unknown;
+    modelStatus?: {
+      modelStage?: unknown;
+    };
   }>;
   nextPageToken?: unknown;
 };
@@ -46,6 +49,8 @@ const nonTextModelNamePattern =
   /(?:^|[-_])(image|vision|audio|video|tts|live|music|lyria|veo|embedding|aqa|nano-banana)(?:[-_]|$)/i;
 const mainstreamTextModelNamePattern =
   /^gemini-\d+(?:\.\d+)?-(?:flash(?:-lite)?|pro)(?:-latest)?$/i;
+const unavailableModelStages = new Set(['LEGACY', 'DEPRECATED', 'RETIRED']);
+const retiredModelNamePattern = /^gemini-2\.0-(?:flash|flash-lite)(?:-\d+)?$/i;
 
 /**
  * Provider for the Gemini GenerateContent REST API.
@@ -175,10 +180,16 @@ export class GeminiProvider implements AiProvider {
           : false;
 
         const id = name.replace(/^models\//, '');
+        const modelStage =
+          typeof model.modelStatus?.modelStage === 'string'
+            ? model.modelStatus.modelStage
+            : undefined;
 
         if (
           !name ||
           !supportsGeneration ||
+          (modelStage && unavailableModelStages.has(modelStage)) ||
+          retiredModelNamePattern.test(id) ||
           !id.startsWith('gemini-') ||
           !mainstreamTextModelNamePattern.test(id) ||
           nonTextModelNamePattern.test(id)
