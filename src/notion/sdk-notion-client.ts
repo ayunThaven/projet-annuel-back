@@ -190,12 +190,15 @@ export class SdkNotionClient implements NotionClientPort {
       id: string;
       last_edited_time?: string;
       properties?: Record<string, unknown>;
+      in_trash?: boolean;
+      archived?: boolean;
     };
 
     return {
       id: record.id,
       last_edited_time: record.last_edited_time ?? new Date().toISOString(),
       properties: (record.properties ?? {}) as NotionPage['properties'],
+      inTrash: record.in_trash ?? record.archived ?? false,
     };
   }
 }

@@ -16,6 +16,8 @@ export interface NotionPage {
   id: string;
   last_edited_time: string;
   properties: Record<string, NotionPropertyValue>;
+  /** Dans la corbeille Notion : visible via l'API mais plus sur le calendrier. */
+  inTrash: boolean;
 }
 
 export interface QueryDatabaseParams {

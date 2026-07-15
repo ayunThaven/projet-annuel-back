@@ -11,8 +11,13 @@ import { NotionOAuthService } from './notion-oauth.service';
 import { NotionSyncService } from './notion-sync.service';
 import { NotionApiError, NotionClientPort, NotionPage } from './notion.types';
 
-function page(id: string): NotionPage {
-  return { id, last_edited_time: '2026-07-01T00:00:00.000Z', properties: {} };
+function page(id: string, inTrash = false): NotionPage {
+  return {
+    id,
+    last_edited_time: '2026-07-01T00:00:00.000Z',
+    properties: {},
+    inTrash,
+  };
 }
 
 describe('NotionSyncService', () => {
@@ -330,6 +335,7 @@ describe('NotionSyncService', () => {
               'Date de publication': { date: { start: '2026-08-01' } },
               Catégorie: { select: { name: 'Blog' } },
             },
+            inTrash: false,
           },
         ],
         nextCursor: null,
@@ -355,6 +361,7 @@ describe('NotionSyncService', () => {
             properties: {
               "Nom de l'article": { title: [{ plain_text: 'Idee brute' }] },
             },
+            inTrash: false,
           },
         ],
         nextCursor: null,
@@ -369,6 +376,89 @@ describe('NotionSyncService', () => {
       expect(summary.created).toBe(1);
       const savedEntity = contentRepository.save.mock.calls[0][0];
       expect(savedEntity.status).toBe(ContentStatus.DRAFT);
+    });
+  });
+
+  describe('pushContentWithVerification — detection des pages disparues cote Notion', () => {
+    it('recree une page marquee SYNCED mais introuvable cote Notion (404)', async () => {
+      const goneMissing = {
+        id: 'c-verify-404',
+        status: ContentStatus.SCHEDULED,
+        notionPageId: 'page-deleted-by-hand',
+        syncStatus: SyncStatus.SYNCED,
+      } as ContentItemEntity;
+      contentRepository.find.mockResolvedValueOnce([goneMissing]); // verification
+      fakeClient.retrievePage.mockRejectedValue(
+        new NotionApiError('introuvable', 'NOT_FOUND', 404),
+      );
+      contentRepository.find.mockResolvedValueOnce([goneMissing]); // push qui suit
+
+      const summary = await service.pushContentWithVerification(agency);
+
+      expect(fakeClient.retrievePage).toHaveBeenCalledWith(
+        'page-deleted-by-hand',
+      );
+      expect(summary.recovered).toBe(1);
+      // Le pointeur a ete oublie : le push qui suit recree une page neuve.
+      expect(fakeClient.createPage).toHaveBeenCalledTimes(1);
+      expect(summary.created).toBe(1);
+    });
+
+    it('recree une page marquee SYNCED mais mise a la corbeille dans Notion', async () => {
+      const trashed = {
+        id: 'c-verify-trash',
+        status: ContentStatus.PUBLISHED,
+        notionPageId: 'page-in-trash',
+        syncStatus: SyncStatus.SYNCED,
+      } as ContentItemEntity;
+      contentRepository.find.mockResolvedValueOnce([trashed]);
+      fakeClient.retrievePage.mockResolvedValue(page('page-in-trash', true));
+      contentRepository.find.mockResolvedValueOnce([trashed]);
+
+      const summary = await service.pushContentWithVerification(agency);
+
+      expect(summary.recovered).toBe(1);
+      expect(fakeClient.createPage).toHaveBeenCalledTimes(1);
+    });
+
+    it("ne touche a rien si la page existe toujours et n'est pas a la corbeille", async () => {
+      const stillThere = {
+        id: 'c-verify-ok',
+        status: ContentStatus.SCHEDULED,
+        notionPageId: 'page-still-there',
+        syncStatus: SyncStatus.SYNCED,
+      } as ContentItemEntity;
+      contentRepository.find.mockResolvedValueOnce([stillThere]);
+      fakeClient.retrievePage.mockResolvedValue(
+        page('page-still-there', false),
+      );
+      contentRepository.find.mockResolvedValueOnce([]); // rien a PENDING/ERROR pour le push
+
+      const summary = await service.pushContentWithVerification(agency);
+
+      expect(summary.recovered).toBe(0);
+      expect(fakeClient.createPage).not.toHaveBeenCalled();
+      expect(stillThere.syncStatus).toBe(SyncStatus.SYNCED);
+    });
+
+    it('ne conclut pas a une suppression sur une simple erreur transitoire', async () => {
+      const flaky = {
+        id: 'c-verify-transient',
+        status: ContentStatus.SCHEDULED,
+        notionPageId: 'page-flaky',
+        syncStatus: SyncStatus.SYNCED,
+      } as ContentItemEntity;
+      contentRepository.find.mockResolvedValueOnce([flaky]);
+      fakeClient.retrievePage.mockRejectedValue(
+        new NotionApiError('indisponible', 'SERVER_ERROR', 503),
+      );
+      contentRepository.find.mockResolvedValueOnce([]);
+
+      const summary = await service.pushContentWithVerification(agency);
+
+      expect(summary.recovered).toBe(0);
+      expect(flaky.notionPageId).toBe('page-flaky');
+      expect(flaky.syncStatus).toBe(SyncStatus.SYNCED);
     });
   });
 });
