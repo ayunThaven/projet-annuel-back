@@ -98,11 +98,13 @@ export class SdkNotionClient implements NotionClientPort {
   async createPage(
     databaseId: string,
     properties: NotionProperties,
+    markdown?: string | null,
   ): Promise<NotionPage> {
     try {
       const page = await this.client.pages.create({
         parent: { type: 'data_source_id', data_source_id: databaseId },
         properties: properties as never,
+        ...(markdown ? { markdown } : {}),
       });
 
       return this.toNotionPage(page);
@@ -140,6 +142,18 @@ export class SdkNotionClient implements NotionClientPort {
   async archivePage(pageId: string): Promise<void> {
     try {
       await this.client.pages.update({ page_id: pageId, archived: true });
+    } catch (error) {
+      throw toNotionApiError(error);
+    }
+  }
+
+  async setPageContent(pageId: string, markdown: string): Promise<void> {
+    try {
+      await this.client.pages.updateMarkdown({
+        page_id: pageId,
+        type: 'replace_content',
+        replace_content: { new_str: markdown, allow_deleting_content: true },
+      });
     } catch (error) {
       throw toNotionApiError(error);
     }

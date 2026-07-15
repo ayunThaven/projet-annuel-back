@@ -34,6 +34,7 @@ describe('NotionSyncService', () => {
       retrievePage: jest.fn(),
       archivePage: jest.fn().mockResolvedValue(undefined),
       searchDataSources: jest.fn().mockResolvedValue([]),
+      setPageContent: jest.fn().mockResolvedValue(undefined),
     };
 
     contentRepository = {
@@ -165,7 +166,67 @@ describe('NotionSyncService', () => {
       expect(fakeClient.createPage).toHaveBeenCalledWith(
         'discovered-db-id',
         expect.anything(),
+        null,
       );
+    });
+  });
+
+  describe('pushContent — corps de la page (article redige)', () => {
+    it("envoie le texte de l'article en markdown a la creation de la page", async () => {
+      const scheduled = {
+        id: 'c-body-create',
+        status: ContentStatus.SCHEDULED,
+        notionPageId: null,
+        syncStatus: SyncStatus.PENDING,
+        body: '# Mon article\n\nContenu redige.',
+      } as ContentItemEntity;
+      contentRepository.find.mockResolvedValue([scheduled]);
+
+      await service.pushContent(agency);
+
+      expect(fakeClient.createPage).toHaveBeenCalledWith(
+        'db-1',
+        expect.anything(),
+        '# Mon article\n\nContenu redige.',
+      );
+      expect(fakeClient.setPageContent).not.toHaveBeenCalled();
+    });
+
+    it("remplace le corps de la page existante quand l'article est modifie", async () => {
+      const scheduled = {
+        id: 'c-body-update',
+        status: ContentStatus.SCHEDULED,
+        notionPageId: 'page-existing',
+        syncStatus: SyncStatus.PENDING,
+        body: 'Nouveau contenu redige.',
+      } as ContentItemEntity;
+      contentRepository.find.mockResolvedValue([scheduled]);
+
+      await service.pushContent(agency);
+
+      expect(fakeClient.updatePage).toHaveBeenCalledWith(
+        'page-existing',
+        expect.anything(),
+      );
+      expect(fakeClient.setPageContent).toHaveBeenCalledWith(
+        'page-existing',
+        'Nouveau contenu redige.',
+      );
+    });
+
+    it("ne touche pas au corps de la page si l'article n'a pas encore de texte", async () => {
+      const scheduled = {
+        id: 'c-body-empty',
+        status: ContentStatus.SCHEDULED,
+        notionPageId: 'page-existing',
+        syncStatus: SyncStatus.PENDING,
+        body: null,
+      } as ContentItemEntity;
+      contentRepository.find.mockResolvedValue([scheduled]);
+
+      await service.pushContent(agency);
+
+      expect(fakeClient.setPageContent).not.toHaveBeenCalled();
     });
   });
 

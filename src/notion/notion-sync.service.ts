@@ -110,6 +110,7 @@ export class NotionSyncService {
       (entity) => contentMapper.toNotionProperties(entity),
       (entity) =>
         contentMapper.CALENDAR_ELIGIBLE_STATUSES.includes(entity.status),
+      (entity) => contentMapper.toNotionBody(entity),
     );
   }
 
@@ -161,6 +162,7 @@ export class NotionSyncService {
     items: T[],
     toProperties: (entity: T) => NotionProperties,
     isCalendarEligible?: (entity: T) => boolean,
+    toBody?: (entity: T) => string | null,
   ): Promise<SyncSummary> {
     const databaseId = await this.resolveDatabaseId(repository, agency);
     const token = await this.notionOAuth.getRuntimeToken(agency.id);
@@ -175,11 +177,20 @@ export class NotionSyncService {
         }
 
         const properties = toProperties(item);
-        const page = item.notionPageId
-          ? await client.updatePage(item.notionPageId, properties)
-          : await client.createPage(databaseId, properties);
+        const body = toBody?.(item) ?? null;
+        const existingPageId = item.notionPageId;
 
-        if (item.notionPageId) {
+        const page = existingPageId
+          ? await client.updatePage(existingPageId, properties)
+          : await client.createPage(databaseId, properties, body);
+
+        // La creation embarque directement le markdown ; la mise a jour des
+        // proprietes ne touche pas au corps de la page, d'ou cet appel a part.
+        if (existingPageId && body) {
+          await client.setPageContent(existingPageId, body);
+        }
+
+        if (existingPageId) {
           summary.updated += 1;
         } else {
           summary.created += 1;
