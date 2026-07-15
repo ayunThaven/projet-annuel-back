@@ -1,4 +1,5 @@
 import { ContentItemEntity } from '../../content/entities/content-item.entity';
+import { ContentStatus } from '../../common/enums/content-status.enum';
 import { NotionPage, NotionProperties } from '../notion.types';
 import {
   buildDate,
@@ -8,6 +9,17 @@ import {
   readSelect,
   readTitle,
 } from './notion-properties';
+
+/**
+ * Statuts consideres "sur le calendrier editorial" : seuls les contenus dans
+ * un de ces statuts sont pousses vers la base Notion "Articles" (et donc
+ * visibles dans sa vue calendrier). Un retour a un statut anterieur (ex:
+ * DRAFT) declenche l'archivage de la page Notion existante.
+ */
+export const CALENDAR_ELIGIBLE_STATUSES: ContentStatus[] = [
+  ContentStatus.SCHEDULED,
+  ContentStatus.PUBLISHED,
+];
 
 /**
  * Noms des colonnes de la base Notion "Articles" (calendrier editorial).

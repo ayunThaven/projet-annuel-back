@@ -69,9 +69,12 @@ export class NotionOAuthCallbackController {
         throw new Error('Missing code or state');
       }
       await this.notionOAuth.handleCallback(code, state);
-      await res.redirect(`${frontendUrl}/integrations?notion=connected`);
+      // Le code de statut doit etre passe explicitement : sans lui, Fastify
+      // reutilise le code deja present sur la reponse (200 par defaut ici),
+      // et le navigateur ne suit pas une redirection en 200.
+      await res.redirect(`${frontendUrl}/parametres?notion=connected`, 302);
     } catch {
-      await res.redirect(`${frontendUrl}/integrations?notion=error`);
+      await res.redirect(`${frontendUrl}/parametres?notion=error`, 302);
     }
   }
 }

@@ -64,7 +64,9 @@ export function fromNotionPage(page: NotionPage): Partial<CurationItemEntity> {
     title: readTitle(page, CURATION_PROPERTIES.title),
     sourceUrl: readUrl(page, CURATION_PROPERTIES.sourceUrl),
     topics: topics.length ? topics : null,
-    status: notionStatusToCuration(readStatus(page, CURATION_PROPERTIES.status)),
+    status: notionStatusToCuration(
+      readStatus(page, CURATION_PROPERTIES.status),
+    ),
     notes: readRichText(page, CURATION_PROPERTIES.notes),
   };
 }
