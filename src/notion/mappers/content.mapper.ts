@@ -25,9 +25,10 @@ export const CALENDAR_ELIGIBLE_STATUSES: ContentStatus[] = [
  * Noms des colonnes de la base Notion "Articles" (calendrier editorial).
  *
  * Alignes sur le template reel duplique : cette base ne porte que le titre, la
- * date de publication et une categorie. Les autres champs de ContentItemEntity
- * (status, url, tags, notes...) n'ont pas de colonne et ne sont donc pas
- * synchronises pour l'instant.
+ * date de publication et une categorie en proprietes. Le texte de l'article
+ * (`body`) n'a pas de colonne dediee : il est ecrit comme corps de la page
+ * (cf. `toNotionBody`), pas comme propriete. `status`/`url`/`tags`/`notes` ne
+ * sont toujours pas synchronises.
  */
 export const CONTENT_PROPERTIES = {
   title: "Nom de l'article",
@@ -45,6 +46,17 @@ export function toNotionProperties(
     // La "Catégorie" Notion est portee par le champ applicatif `channel`.
     [CONTENT_PROPERTIES.category]: buildSelect(entity.channel),
   };
+}
+
+/**
+ * Corps (contenu) de la page Notion : le markdown de l'article redige,
+ * envoye tel quel (Notion parse le markdown cote serveur). `null` si rien a
+ * ecrire, pour ne pas ecraser une page avec un contenu vide.
+ */
+export function toNotionBody(
+  entity: Pick<ContentItemEntity, 'body'>,
+): string | null {
+  return entity.body?.trim() ? entity.body : null;
 }
 
 /** Decode une page Notion vers les champs metier d'un contenu. */

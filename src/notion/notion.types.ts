@@ -16,6 +16,8 @@ export interface NotionPage {
   id: string;
   last_edited_time: string;
   properties: Record<string, NotionPropertyValue>;
+  /** Dans la corbeille Notion : visible via l'API mais plus sur le calendrier. */
+  inTrash: boolean;
 }
 
 export interface QueryDatabaseParams {
@@ -40,14 +42,18 @@ export interface QueryDatabaseResult {
  */
 export interface NotionClientPort {
   queryDatabase(params: QueryDatabaseParams): Promise<QueryDatabaseResult>;
+  /** `markdown` devient le corps (contenu) de la page a la creation. */
   createPage(
     databaseId: string,
     properties: NotionProperties,
+    markdown?: string | null,
   ): Promise<NotionPage>;
   updatePage(pageId: string, properties: NotionProperties): Promise<NotionPage>;
   retrievePage(pageId: string): Promise<NotionPage>;
   /** Archive (soft-delete) une page, ex: contenu retire du calendrier. */
   archivePage(pageId: string): Promise<void>;
+  /** Remplace integralement le corps (contenu) d'une page existante. */
+  setPageContent(pageId: string, markdown: string): Promise<void>;
   /**
    * Recherche les data sources (bases) visibles par le token, filtrees par
    * titre. Sert a auto-detecter les bases "Articles"/"Centre de ressources"

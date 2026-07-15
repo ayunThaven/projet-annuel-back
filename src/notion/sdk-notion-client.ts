@@ -98,11 +98,13 @@ export class SdkNotionClient implements NotionClientPort {
   async createPage(
     databaseId: string,
     properties: NotionProperties,
+    markdown?: string | null,
   ): Promise<NotionPage> {
     try {
       const page = await this.client.pages.create({
         parent: { type: 'data_source_id', data_source_id: databaseId },
         properties: properties as never,
+        ...(markdown ? { markdown } : {}),
       });
 
       return this.toNotionPage(page);
@@ -145,6 +147,18 @@ export class SdkNotionClient implements NotionClientPort {
     }
   }
 
+  async setPageContent(pageId: string, markdown: string): Promise<void> {
+    try {
+      await this.client.pages.updateMarkdown({
+        page_id: pageId,
+        type: 'replace_content',
+        replace_content: { new_str: markdown, allow_deleting_content: true },
+      });
+    } catch (error) {
+      throw toNotionApiError(error);
+    }
+  }
+
   async searchDataSources(query: string): Promise<NotionDataSourceSummary[]> {
     try {
       const response = await this.client.search({
@@ -176,12 +190,15 @@ export class SdkNotionClient implements NotionClientPort {
       id: string;
       last_edited_time?: string;
       properties?: Record<string, unknown>;
+      in_trash?: boolean;
+      archived?: boolean;
     };
 
     return {
       id: record.id,
       last_edited_time: record.last_edited_time ?? new Date().toISOString(),
       properties: (record.properties ?? {}) as NotionPage['properties'],
+      inTrash: record.in_trash ?? record.archived ?? false,
     };
   }
 }

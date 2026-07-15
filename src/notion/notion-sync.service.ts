@@ -27,6 +27,8 @@ export interface SyncSummary {
   updated: number;
   skipped: number;
   errors: number;
+  /** Pages marquees "synchronisees" en base mais absentes/a la corbeille cote Notion, detectees par `pushContentWithVerification`. */
+  recovered: number;
 }
 
 const emptySummary = (): SyncSummary => ({
@@ -34,6 +36,7 @@ const emptySummary = (): SyncSummary => ({
   updated: 0,
   skipped: 0,
   errors: 0,
+  recovered: 0,
 });
 
 function mergeSummaries(...summaries: SyncSummary[]): SyncSummary {
@@ -42,6 +45,7 @@ function mergeSummaries(...summaries: SyncSummary[]): SyncSummary {
     total.updated += current.updated;
     total.skipped += current.skipped;
     total.errors += current.errors;
+    total.recovered += current.recovered;
     return total;
   }, emptySummary());
 }
@@ -110,7 +114,91 @@ export class NotionSyncService {
       (entity) => contentMapper.toNotionProperties(entity),
       (entity) =>
         contentMapper.CALENDAR_ELIGIBLE_STATUSES.includes(entity.status),
+      (entity) => contentMapper.toNotionBody(entity),
     );
+  }
+
+  /**
+   * Comme `pushContent`, mais revient d'abord sur tous les contenus
+   * planifies/publies deja marques `SYNCED` pour confirmer que leur page
+   * existe encore reellement cote Notion (pas supprimee/mise a la corbeille
+   * a la main). Plus couteux (un appel Notion par page a verifier) : reserve
+   * a un declenchement manuel ("au cas ou ca a foire"), pas au push
+   * automatique a chaque changement de statut.
+   */
+  async pushContentWithVerification(
+    agency: AgencyEntity,
+  ): Promise<SyncSummary> {
+    const recovered = await this.verifyContentPresence(agency);
+    const summary = await this.pushContent(agency);
+
+    return { ...summary, recovered };
+  }
+
+  /**
+   * Verifie que chaque page Notion pointee par un contenu SCHEDULED/PUBLISHED
+   * existe encore et n'est pas a la corbeille. Si absente/a la corbeille, on
+   * oublie le pointeur et on repasse l'item en PENDING pour qu'il soit
+   * recree par le `pushContent` qui suit. Retourne le nombre d'items ainsi
+   * "recuperes".
+   */
+  private async verifyContentPresence(agency: AgencyEntity): Promise<number> {
+    const items = await this.contentRepository.find({
+      where: {
+        status: In(contentMapper.CALENDAR_ELIGIBLE_STATUSES),
+        notionPageId: Not(IsNull()),
+      } as never,
+    });
+
+    if (!items.length) {
+      return 0;
+    }
+
+    const token = await this.notionOAuth.getRuntimeToken(agency.id);
+    const client = this.notionClient.getClient(token);
+    let recovered = 0;
+
+    for (const item of items) {
+      try {
+        const page = await client.retrievePage(item.notionPageId!);
+
+        if (!page.inTrash) {
+          continue;
+        }
+
+        this.logger.warn(
+          `Page Notion a la corbeille pour ContentItemEntity ${item.id} : sera recreee.`,
+        );
+      } catch (error) {
+        if (error instanceof NotionApiError && error.kind === 'UNAUTHORIZED') {
+          this.logger.error(
+            `Verification Notion interrompue pour l'agence ${agency.id} : token invalide ou revoque.`,
+          );
+          return recovered;
+        }
+
+        if (!(error instanceof NotionApiError && error.kind === 'NOT_FOUND')) {
+          // Erreur transitoire (reseau, 5xx...) : ne pas conclure que la page a
+          // disparu sur la seule base d'un echec passager.
+          this.logger.warn(
+            `Verification Notion ignoree pour ContentItemEntity ${item.id}: ${String(error)}`,
+          );
+          continue;
+        }
+
+        this.logger.warn(
+          `Page Notion introuvable pour ContentItemEntity ${item.id} : sera recreee.`,
+        );
+      }
+
+      item.notionPageId = null;
+      item.notionLastEditedAt = null;
+      item.syncStatus = SyncStatus.PENDING;
+      await this.contentRepository.save(item);
+      recovered += 1;
+    }
+
+    return recovered;
   }
 
   async pushCuration(agency: AgencyEntity): Promise<SyncSummary> {
@@ -161,6 +249,7 @@ export class NotionSyncService {
     items: T[],
     toProperties: (entity: T) => NotionProperties,
     isCalendarEligible?: (entity: T) => boolean,
+    toBody?: (entity: T) => string | null,
   ): Promise<SyncSummary> {
     const databaseId = await this.resolveDatabaseId(repository, agency);
     const token = await this.notionOAuth.getRuntimeToken(agency.id);
@@ -175,11 +264,20 @@ export class NotionSyncService {
         }
 
         const properties = toProperties(item);
-        const page = item.notionPageId
-          ? await client.updatePage(item.notionPageId, properties)
-          : await client.createPage(databaseId, properties);
+        const body = toBody?.(item) ?? null;
+        const existingPageId = item.notionPageId;
 
-        if (item.notionPageId) {
+        const page = existingPageId
+          ? await client.updatePage(existingPageId, properties)
+          : await client.createPage(databaseId, properties, body);
+
+        // La creation embarque directement le markdown ; la mise a jour des
+        // proprietes ne touche pas au corps de la page, d'ou cet appel a part.
+        if (existingPageId && body) {
+          await client.setPageContent(existingPageId, body);
+        }
+
+        if (existingPageId) {
           summary.updated += 1;
         } else {
           summary.created += 1;

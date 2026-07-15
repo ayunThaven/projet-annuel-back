@@ -37,6 +37,24 @@ export class NotionController {
     return this.notionSync.pushAll(agency);
   }
 
+  /**
+   * Force la resynchronisation des contenus planifies/publies (calendrier
+   * editorial) uniquement, sans toucher a la curation. Sert de filet de
+   * secours manuel si le push automatique (declenche a la planification) a
+   * echoue silencieusement pour une raison ou une autre. Revient aussi sur
+   * les pages deja marquees "synchronisees" pour confirmer qu'elles existent
+   * toujours reellement cote Notion (pas supprimees/mises a la corbeille a la
+   * main sans que l'app ne le sache).
+   */
+  @Post('push-content')
+  @AgencyRoles(AgencyRole.OWNER, AgencyRole.EDITOR, {
+    agencyIdSource: 'params',
+  })
+  async pushContent(@Param('agencyId') agencyId: string) {
+    const agency = await this.loadAgency(agencyId);
+    return this.notionSync.pushContentWithVerification(agency);
+  }
+
   @Post('pull')
   @AgencyRoles(AgencyRole.OWNER, AgencyRole.EDITOR, {
     agencyIdSource: 'params',
