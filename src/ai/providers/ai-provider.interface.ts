@@ -55,5 +55,5 @@ export interface AiProvider {
 
   complete(input: AiCompletionInput): Promise<AiCompletionResult>;
   getStatus(): AiProviderStatus;
-  isConfigured(): boolean;
+  isConfigured(apiKey?: string): boolean;
 }

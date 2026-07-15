@@ -139,8 +139,8 @@ export class GeminiProvider implements AiProvider {
     };
   }
 
-  isConfigured() {
-    return this.getMissingConfig().length === 0;
+  isConfigured(apiKey?: string) {
+    return this.getMissingConfig(apiKey).length === 0;
   }
 
   async listModels(apiKey?: string): Promise<AiModelOption[]> {
