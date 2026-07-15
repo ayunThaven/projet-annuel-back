@@ -184,6 +184,26 @@ describe('AiService', () => {
     });
   });
 
+  it('does not expose the demo provider in production', async () => {
+    const config = createConfig({
+      NODE_ENV: 'production',
+      GEMINI_API_KEY: 'secret',
+    });
+    const service = new AiService(
+      config,
+      new DemoAiProvider(config),
+      new GeminiProvider(config),
+      createSettingsService(),
+    );
+
+    expect(service.listProviders().providers).toEqual([
+      expect.objectContaining({ id: 'gemini' }),
+    ]);
+    await expect(
+      service.listModelsForAgency('agency-1', 'demo'),
+    ).rejects.toThrow('only available outside production');
+  });
+
   it('rejects unknown providers', async () => {
     const config = createConfig();
     const service = new AiService(

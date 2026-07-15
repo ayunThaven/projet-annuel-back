@@ -1,3 +1,4 @@
+import { BadRequestException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { AiSettingsService } from './ai-settings.service';
 
@@ -44,5 +45,21 @@ describe('AiSettingsService', () => {
       model: 'gemini-3.5-flash',
       geminiApiKey: 'gemini-secret-key',
     });
+  });
+
+  it('rejects the demo provider in production', async () => {
+    const repository = {
+      findOne: jest.fn(),
+      create: jest.fn(),
+      save: jest.fn(),
+    };
+    const service = new AiSettingsService(
+      repository as never,
+      createConfig({ NODE_ENV: 'production' }),
+    );
+
+    await expect(
+      service.updateSettings('agency-1', { provider: 'demo' }),
+    ).rejects.toThrow(BadRequestException);
   });
 });

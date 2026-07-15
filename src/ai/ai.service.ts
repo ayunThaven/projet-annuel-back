@@ -46,9 +46,9 @@ export class AiService {
   listProviders() {
     return {
       defaultProvider: this.getDefaultProviderId(),
-      providers: Array.from(this.providers.values()).map((provider) =>
-        provider.getStatus(),
-      ),
+      providers: Array.from(this.providers.values())
+        .filter((provider) => this.isProviderAvailable(provider.id))
+        .map((provider) => provider.getStatus()),
     };
   }
 
@@ -101,6 +101,12 @@ export class AiService {
     const provider = (providerId || settings.provider).trim();
 
     if (provider === 'demo') {
+      if (!this.isDemoProviderAvailable()) {
+        throw new BadRequestException(
+          'The demo AI provider is only available outside production',
+        );
+      }
+
       return [{ id: 'demo-local', label: 'Demo locale' }];
     }
 
@@ -155,6 +161,12 @@ export class AiService {
     ).trim();
     const provider = this.providers.get(resolvedProviderId);
 
+    if (!this.isProviderAvailable(resolvedProviderId)) {
+      throw new BadRequestException(
+        'The demo AI provider is only available outside production',
+      );
+    }
+
     if (!provider) {
       throw new BadRequestException(
         `Unknown AI provider "${resolvedProviderId}". Available providers: ${Array.from(
@@ -173,6 +185,17 @@ export class AiService {
   }
 
   private getDefaultProviderId() {
-    return this.configService.get<string>('AI_PROVIDER')?.trim() || 'gemini';
+    const provider =
+      this.configService.get<string>('AI_PROVIDER')?.trim() || 'gemini';
+
+    return this.isProviderAvailable(provider) ? provider : 'gemini';
+  }
+
+  private isProviderAvailable(providerId: string) {
+    return providerId !== 'demo' || this.isDemoProviderAvailable();
+  }
+
+  private isDemoProviderAvailable() {
+    return this.configService.get<string>('NODE_ENV') !== 'production';
   }
 }

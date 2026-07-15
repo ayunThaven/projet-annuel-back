@@ -42,9 +42,17 @@ export class AiSettingsService {
       },
     });
 
+    const provider = settings?.provider
+      ? this.getAvailableProvider(settings.provider)
+      : this.getDefaultProvider();
+    const hasAvailableStoredProvider = settings?.provider === provider;
+
     return {
-      provider: settings?.provider ?? this.getDefaultProvider(),
-      model: settings?.model ?? this.getDefaultModel(settings?.provider),
+      provider,
+      model:
+        hasAvailableStoredProvider && settings?.model
+          ? settings.model
+          : this.getDefaultModel(provider),
       geminiApiKeyConfigured:
         (Boolean(settings) && (await this.hasStoredGeminiApiKey(agencyId))) ||
         Boolean(this.configService.get<string>('GEMINI_API_KEY')?.trim()),
@@ -56,6 +64,12 @@ export class AiSettingsService {
     if (input.geminiApiKey && input.clearGeminiApiKey) {
       throw new BadRequestException(
         'geminiApiKey and clearGeminiApiKey cannot be used together',
+      );
+    }
+
+    if (input.provider === 'demo' && !this.isDemoProviderAvailable()) {
+      throw new BadRequestException(
+        'The demo AI provider is only available outside production',
       );
     }
 
@@ -102,9 +116,16 @@ export class AiSettingsService {
       },
     });
 
+    const provider = settings?.provider
+      ? this.getAvailableProvider(settings.provider)
+      : this.getDefaultProvider();
+    const hasAvailableStoredProvider = settings?.provider === provider;
+
     return {
-      provider: settings?.provider ?? this.getDefaultProvider(),
-      ...(settings?.model ? { model: settings.model } : {}),
+      provider,
+      ...(hasAvailableStoredProvider && settings?.model
+        ? { model: settings.model }
+        : { model: this.getDefaultModel(provider) }),
       ...(settings?.geminiApiKeyEncrypted
         ? { geminiApiKey: this.decrypt(settings.geminiApiKeyEncrypted) }
         : {}),
@@ -121,14 +142,29 @@ export class AiSettingsService {
   }
 
   private getDefaultProvider() {
-    return this.configService.get<string>('AI_PROVIDER')?.trim() || 'gemini';
+    const provider =
+      this.configService.get<string>('AI_PROVIDER')?.trim() || 'gemini';
+
+    return this.getAvailableProvider(provider);
   }
 
   private getDefaultModel(provider?: string) {
     return provider === 'demo'
       ? this.configService.get<string>('AI_DEMO_MODEL')?.trim() || 'demo-local'
       : this.configService.get<string>('GEMINI_MODEL')?.trim() ||
-          'gemini-2.0-flash';
+          'gemini-3.5-flash';
+  }
+
+  private getAvailableProvider(provider?: string) {
+    const candidate = provider?.trim() || 'gemini';
+
+    return candidate === 'demo' && !this.isDemoProviderAvailable()
+      ? 'gemini'
+      : candidate;
+  }
+
+  private isDemoProviderAvailable() {
+    return this.configService.get<string>('NODE_ENV') !== 'production';
   }
 
   private encrypt(value: string) {
