@@ -78,6 +78,7 @@ export class AiService {
       maxTokens: input.maxTokens,
       responseFormat: input.responseFormat,
       responseSchema: input.responseSchema,
+      apiKey: input.apiKey,
     });
   }
 
@@ -111,7 +112,7 @@ export class AiService {
   }
 
   private callProvider(input: AiCompletionInput & { provider?: string }) {
-    const provider = this.resolveProvider(input.provider);
+    const provider = this.resolveProvider(input.provider, input.apiKey);
 
     return provider.complete({
       messages: input.messages,
@@ -148,7 +149,7 @@ export class AiService {
       .join('\n\n');
   }
 
-  private resolveProvider(providerId?: string) {
+  private resolveProvider(providerId?: string, apiKey?: string) {
     const resolvedProviderId = (
       providerId || this.getDefaultProviderId()
     ).trim();
@@ -162,7 +163,7 @@ export class AiService {
       );
     }
 
-    if (!provider.isConfigured()) {
+    if (!provider.isConfigured(apiKey)) {
       throw new BadRequestException(
         `AI provider "${resolvedProviderId}" is not configured`,
       );

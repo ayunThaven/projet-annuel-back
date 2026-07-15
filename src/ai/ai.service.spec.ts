@@ -14,7 +14,9 @@ function createConfig(values: Record<string, string | undefined> = {}) {
 function createSettingsService() {
   return {
     getRuntimeSettings: jest.fn(),
-  } as unknown as AiSettingsService;
+  } as unknown as AiSettingsService & {
+    getRuntimeSettings: jest.Mock;
+  };
 }
 
 describe('AiService', () => {
@@ -110,6 +112,45 @@ describe('AiService', () => {
         parts: [{ text: 'Redige une introduction.' }],
       },
     ]);
+  });
+
+  it('uses the encrypted per-agency Gemini key when no environment key is set', async () => {
+    const fetchMock = jest.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          candidates: [
+            {
+              content: {
+                parts: [{ text: 'Contenu genere pour l agence' }],
+              },
+            },
+          ],
+        }),
+        { status: 200 },
+      ),
+    );
+    global.fetch = fetchMock;
+    const config = createConfig({ GEMINI_MODEL: 'gemini-test' });
+    const settingsService = createSettingsService();
+    settingsService.getRuntimeSettings.mockResolvedValue({
+      provider: 'gemini',
+      model: 'gemini-agency-model',
+      geminiApiKey: 'agency-secret',
+    });
+    const service = new AiService(
+      config,
+      new DemoAiProvider(config),
+      new GeminiProvider(config),
+      settingsService,
+    );
+
+    await service.generateTextForAgency('agency-1', {
+      prompt: 'Redige une introduction.',
+    });
+
+    expect(fetchMock.mock.calls[0][0].toString()).toContain(
+      'models/gemini-agency-model:generateContent?key=agency-secret',
+    );
   });
 
   it('lists providers without leaking secrets', () => {
